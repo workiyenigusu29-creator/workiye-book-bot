@@ -78,7 +78,8 @@ def callback_query(call):
         
         try:
             with open(PDF_FILE_PATH, "rb") as pdf_file:
-                bot.send_document(target_user_id, pdf_file)
+                # 🛡️ ሼር፣ ፎርዋርድ እና ስክሪንሻት እንዳይደረግ protect_content=True ተጨምሯል
+                bot.send_document(target_user_id, pdf_file, protect_content=True)
             bot.answer_callback_query(call.id, "ተጠቃሚው ጸድቆ ፒዲኤፉ ተልኳል!")
         except FileNotFoundError:
             bot.send_message(target_user_id, "⚠️ የፒዲኤፍ ፋይሉ በሲስተሙ አልተገኘም፤ እባክዎ አስተዳዳሪውን ያነጋግሩ።")
@@ -105,25 +106,6 @@ def callback_query(call):
         except Exception:
             pass
 
-if __name__ == "__main__": from flask import Flask
-import threading
-
-# --- Dummy Web Server for Render Port requirement ---
-app = Flask(__name__)
-
-@app.route('/')
-def home():
-    return "Bot is running!"
-
-def run_web():
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
-# ---------------------------------------------------
-
 if __name__ == "__main__":
-    # Start the web server in a background thread
-    t = threading.Thread(target=run_web)
-    t.start()
-
     print("🤖 Telegram Bot is running and waiting for customer messages...")
     bot.infinity_polling()

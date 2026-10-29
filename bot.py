@@ -107,4 +107,26 @@ def callback_query(call):
 
 if __name__ == "__main__":
     print("🤖 Telegram Bot is running and waiting for customer messages...")
+    bot.infinity_polling()from flask import Flask
+import threading
+import os
+
+# --- Dummy Web Server for Render Free Tier Port requirement ---
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "Bot is running!"
+
+def run_web():
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
+# -------------------------------------------------------------
+
+if __name__ == "__main__":
+    # Start the web server in a background thread
+    t = threading.Thread(target=run_web)
+    t.start()
+
+    print("🤖 Telegram Bot is running and waiting for customer messages...")
     bot.infinity_polling()

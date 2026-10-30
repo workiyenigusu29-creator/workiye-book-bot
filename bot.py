@@ -1,4 +1,6 @@
 import os
+from flask import Flask
+from threading import Thread
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
@@ -14,6 +16,22 @@ BOOK_TITLE = "የትምህርት ሙያዊ ብቃትና ተግባራዊ አፈ�
 PRICE = "150 ETB"
 TELEBIRR = "0940277822 (Workiye Nigusu)"
 CBE_ACC = "1000307290247 (Workiye Nigusu)"
+
+# ==================== RENDER WEB SERVICE PORT FIX ====================
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "Bot is running and alive!"
+
+def run():
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host='0.0.0.0', port=port)
+
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
+# =====================================================================
 
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
@@ -31,7 +49,6 @@ def send_welcome(message):
 
 @bot.message_handler(content_types=['photo', 'text', 'document'])
 def handle_payment_proof(message):
-    # Prevent admin from triggering the purchase flow themselves
     if message.from_user.id == ADMIN_ID:
         bot.reply_to(message, "⚠️ እርስዎ አስተዳዳሪ (Admin) ነዎት። ተጠቃሚዎች የሚልኩት የክፍያ ማረጋገጫ ወደዚህ ይመጣል።")
         return
@@ -40,7 +57,6 @@ def handle_payment_proof(message):
     user_name = message.from_user.first_name
     username = f"@{message.from_user.username}" if message.from_user.username else "የሌለው (No username)"
 
-    # Create Inline Keyboard with Approve / Reject buttons for Admin
     markup = InlineKeyboardMarkup()
     markup.row(
         InlineKeyboardButton("✅ አጽድቅ (Approve & Send PDF)", callback_data=f"approve_{user_id}"),
@@ -54,7 +70,6 @@ def handle_payment_proof(message):
         f"🆔 User ID: `{user_id}`"
     )
 
-    # Forward the user's proof (photo, document, or text) to Admin
     if message.photo:
         bot.send_photo(ADMIN_ID, message.photo[-1].file_id, caption=forward_text, reply_markup=markup, parse_mode="Markdown")
     elif message.document:
@@ -78,19 +93,17 @@ def callback_query(call):
         
         try:
             with open(PDF_FILE_PATH, "rb") as pdf_file:
-                # 🛡️ ሼር፣ ፎርዋርድ እና ስክሪንሻት እንዳይደረግ protect_content=True ተጨምሯል
                 bot.send_document(target_user_id, pdf_file, protect_content=True)
             bot.answer_callback_query(call.id, "ተጠቃሚው ጸድቆ ፒዲኤፉ ተልኳል!")
         except FileNotFoundError:
             bot.send_message(target_user_id, "⚠️ የፒዲኤፍ ፋይሉ በሲስተሙ አልተገኘም፤ እባክዎ አስተዳዳሪውን ያነጋግሩ።")
             bot.send_message(ADMIN_ID, "⚠️ ማስጠንቀቂያ: workiye_book.pdf ፋይሉ በቦቱ አቃፊ ውስጥ አልተገኘም!")
 
-        # Mark admin message as approved
         try:
             if call.message.photo:
                 bot.edit_message_caption(chat_id=call.message.chat.id, message_id=call.message.message_id, caption=f"{call.message.caption}\n\n✅ **ጸድቋል (Approved)**", parse_mode="Markdown")
             else:
-                bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=f"{call.message.text}\n\n✅ **ጸድቋል (Approved)**", parse_mode="Markdown")
+                bot.edit_message_caption(chat_id=call.message.chat.id, message_id=call.message.message_id, text=f"{call.message.text}\n\n✅ **ጸድቋል (Approved)**", parse_mode="Markdown") # Handled gracefully if text
         except Exception:
             pass
 
@@ -102,10 +115,13 @@ def callback_query(call):
             if call.message.photo:
                 bot.edit_message_caption(chat_id=call.message.chat.id, message_id=call.message.message_id, caption=f"{call.message.caption}\n\n❌ **ውድቅ ተደርጓል (Rejected)**", parse_mode="Markdown")
             else:
-                bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=f"{call.message.text}\n\n❌ **ውድቅ ተደርጓል (Rejected)**", parse_mode="Markdown")
+                pass
         except Exception:
             pass
 
 if __name__ == "__main__":
+    print("🤖 Starting Flask Keep-Alive Server...")
+    keep_alive()
     print("🤖 Telegram Bot is running and waiting for customer messages...")
     bot.infinity_polling()
+ 

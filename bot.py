@@ -1,13 +1,13 @@
 import os
+import telebot
 from flask import Flask
 from threading import Thread
-import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 # ==================== CONFIGURATION ====================
-TOKEN = "8777498362:AAEBasfJ75olNP93pUjBiCLu2XgIER0Jvqk"  # Replace with your Telegram Bot token from @BotFather
-ADMIN_ID = 741140918                      # Replace with your numerical Telegram User ID from @userinfobot
-PDF_FILE_PATH = "workiye_book.pdf"       # Name of your book PDF file placed in this folder
+TOKEN = "8777498362:AAEBasfJ75olNP93pUjBiCLu2XgIER0Jvqk"
+ADMIN_ID = 741140918
+PDF_FILE_PATH = "workiye_book.pdf"
 # =======================================================
 
 bot = telebot.TeleBot(TOKEN)
@@ -17,21 +17,22 @@ PRICE = "150 ETB"
 TELEBIRR = "0940277822 (Workiye Nigusu)"
 CBE_ACC = "1000307290247 (Workiye Nigusu)"
 
-# ==================== RENDER WEB SERVICE PORT FIX ====================
+# ==================== FLASK SERVER FOR RENDER ====================
 app = Flask('')
 
 @app.route('/')
 def home():
-    return "Bot is running and alive!"
+    return "Bot is active and running!"
 
-def run():
-    port = int(os.environ.get("PORT", 8080))
+def run_flask():
+    port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
 
 def keep_alive():
-    t = Thread(target=run)
+    t = Thread(target=run_flask)
+    t.daemon = True
     t.start()
-# =====================================================================
+# ================================================================
 
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
@@ -55,11 +56,11 @@ def handle_payment_proof(message):
 
     user_id = message.from_user.id
     user_name = message.from_user.first_name
-    username = f"@{message.from_user.username}" if message.from_user.username else "የሌለው (No username)"
+    username = f"@{message.from_user.username}" if message.from_user.username else "የሌለው"
 
     markup = InlineKeyboardMarkup()
     markup.row(
-        InlineKeyboardButton("✅ አጽድቅ (Approve & Send PDF)", callback_data=f"approve_{user_id}"),
+        InlineKeyboardButton("✅ አጽድቅ (Approve)", callback_data=f"approve_{user_id}"),
         InlineKeyboardButton("❌ ውድቅ አድርግ (Reject)", callback_data=f"reject_{user_id}")
     )
 
@@ -90,7 +91,6 @@ def callback_query(call):
 
     if action == "approve":
         bot.send_message(target_user_id, "🎉 ክፍያዎ በትክክል ጸድቋል! መጽሐፉን ከዚህ በታች ማውረድ ይችላሉ። እናመሰግናለን! 📚")
-        
         try:
             with open(PDF_FILE_PATH, "rb") as pdf_file:
                 bot.send_document(target_user_id, pdf_file, protect_content=True)
@@ -98,30 +98,28 @@ def callback_query(call):
         except FileNotFoundError:
             bot.send_message(target_user_id, "⚠️ የፒዲኤፍ ፋይሉ በሲስተሙ አልተገኘም፤ እባክዎ አስተዳዳሪውን ያነጋግሩ።")
             bot.send_message(ADMIN_ID, "⚠️ ማስጠንቀቂያ: workiye_book.pdf ፋይሉ በቦቱ አቃፊ ውስጥ አልተገኘም!")
-
+        
         try:
             if call.message.photo:
                 bot.edit_message_caption(chat_id=call.message.chat.id, message_id=call.message.message_id, caption=f"{call.message.caption}\n\n✅ **ጸድቋል (Approved)**", parse_mode="Markdown")
             else:
-                bot.edit_message_caption(chat_id=call.message.chat.id, message_id=call.message.message_id, text=f"{call.message.text}\n\n✅ **ጸድቋል (Approved)**", parse_mode="Markdown") # Handled gracefully if text
+                bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=f"{call.message.text}\n\n✅ **ጸድቋል (Approved)**", parse_mode="Markdown")
         except Exception:
             pass
 
     elif action == "reject":
-        bot.send_message(target_user_id, "❌ ይቅርታ፣ የክፍያ ማረጋገጫዎ አልተረጋገጠም። እባክዎ በትክክል እንደገና ይሞክሩ ወይም በድጋሚ ያነጋግሩን።")
+        bot.send_message(target_user_id, "❌ ይቅርታ፣ የክፍያ ማረጋገጫዎ አልተረጋገጠም። እባክዎ በትክክል እንደገና ይሞክሩ።")
         bot.answer_callback_query(call.id, "ክፍያው ውድቅ ተደርጓል።")
-        
         try:
             if call.message.photo:
                 bot.edit_message_caption(chat_id=call.message.chat.id, message_id=call.message.message_id, caption=f"{call.message.caption}\n\n❌ **ውድቅ ተደርጓል (Rejected)**", parse_mode="Markdown")
             else:
-                pass
+                bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=f"{call.message.text}\n\n❌ **ውድቅ ተደርጓል (Rejected)**", parse_mode="Markdown")
         except Exception:
             pass
 
 if __name__ == "__main__":
     print("🤖 Starting Flask Keep-Alive Server...")
     keep_alive()
-    print("🤖 Telegram Bot is running and waiting for customer messages...")
-    bot.infinity_polling()
- 
+    print("🤖 Telegram Bot is running with infinity polling...")
+    bot.infinity_polling(skip_pending=True)

@@ -3,7 +3,7 @@ import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 # ==================== CONFIGURATION ====================
-TOKEN = "8777498362:AAFpdT82gz_LpM4fxB3uHflFQ1qs5HSeOaI"  # Replace with your Telegram Bot token from @BotFather
+TOKEN = "8777498362:AAHG2nANiEZUTmFIK1fqW9EFbseTSVe7ab8"  # Replace with your Telegram Bot token from @BotFather
 ADMIN_ID = 741140918                      # Replace with your numerical Telegram User ID from @userinfobot
 PDF_FILE_PATH = "workiye_book.pdf"       # Name of your book PDF file placed in this folder
 # =======================================================

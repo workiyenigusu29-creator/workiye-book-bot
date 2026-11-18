@@ -1,125 +1,93 @@
-import os
-import telebot
-from flask import Flask
-from threading import Thread
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+import logging
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, CallbackQueryHandler, MessageHandler, filters
 
-# ==================== CONFIGURATION ====================
-TOKEN = "8777498362:AAEBasfJ75olNP93pUjBiCLu2XgIER0Jvqk"
-ADMIN_ID = 741140918
-PDF_FILE_PATH = "workiye_book.pdf"
-# =======================================================
+# የቦት ቶከን
+TOKEN = "9000383726:AAEjB5oyItxLQnyidModpHop4H66IMhlL3s"
 
-bot = telebot.TeleBot(TOKEN)
+# የ 6 መጽሐፍት ዝርዝር እና የፋይል ስሞች
+BOOKS = {
+    "book_1": {"title": "ሀገር በቀል እፅዋትና የህክምና ጥቅማቸው", "price": "100 ብር", "file": "medcine book.pdf"},
+    "book_2": {"title": "የትምህርት ሙያዊ ብቃትና ተግባራዊ አፈጻጸም", "price": "150 ብር", "file": "የትምህርት ሙያዊ ብቃት.pdf"},
+    "book_3": {"title": "Professional competence and practical performance in education", "price": "150 ብር", "file": "Educational competency.pdf"},
+    "book_4": {"title": "የመሪነት ጥበብ", "price": "200 ብር", "file": "የመሪነት ጥበብ.pdf"},
+    "book_5": {"title": "የስኬት ምስጢር", "price": "200 ብር", "file": "የስኬት ምስጢር.pdf"},
+    "book_6": {"title": "የሲቭል ሰርቭስ የብቃት ምዘና ጥያቄዎች 457 በላይ", "price": "200 ብር", "file": "civil service exam.pdf"},
+}
 
-BOOK_TITLE = "የትምህርት ሙያዊ ብቃትና ተግባራዊ አፈጻጸም"
-PRICE = "150 ETB"
-TELEBIRR = "0940277822 (Workiye Nigusu)"
-CBE_ACC = "1000307290247 (Workiye Nigusu)"
-
-# ==================== FLASK SERVER FOR RENDER ====================
-app = Flask('')
-
-@app.route('/')
-def home():
-    return "Bot is active and running!"
-
-def run_flask():
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host='0.0.0.0', port=port)
-
-def keep_alive():
-    t = Thread(target=run_flask)
-    t.daemon = True
-    t.start()
-# ================================================================
-
-@bot.message_handler(commands=['start', 'help'])
-def send_welcome(message):
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_name = update.effective_user.first_name
     welcome_text = (
-        f"ሰላም {message.from_user.first_name}! እንኳን ደህና መጡ።\n\n"
-        f"📚 **{BOOK_TITLE}**\n"
-        f"✍️ አዘጋጅ፦ ወርቅዬ ንጉሱ\n"
-        f"💰 ዋጋ፦ {PRICE}\n\n"
-        f"ይህን መጽሐፍ ለመግዛት እባክዎ ከታች ባሉት አካውንቶች ክፍያውን ይፈጽሙ፡\n\n"
-        f"📱 **Telebirr**: `{TELEBIRR}`\n"
-        f"🏦 **CBE (የኢትዮጵያ ንግድ ባንክ)**: `{CBE_ACC}`\n\n"
-        f"ክፍያውን ከፈጸሙ በኋላ የክፍያ ማረጋገጫ (Receipt Screenshot ወይም Transaction ID) በዚህ ቦት ይላኩ!"
+        f"ሰላም <b>{user_name}</b>! እንኳን ወደ መጽሐፍ መሸጫ ቦታችን በደህና መጡ።\n\n"
+        "ከዚህ በታች ያሉትን ጥራት ያላቸው መጽሐፍት በመምረጥ ማግኘት ይችላሉ። ለመግዛት የሚፈልጉትን መጽሐፍ ይምረጡ፡"
     )
-    bot.reply_to(message, welcome_text, parse_mode="Markdown")
+    
+    keyboard = []
+    for key, book in BOOKS.items():
+        keyboard.append([InlineKeyboardButton(f"📖 {book['title']} — {book['price']}", callback_data=key)])
+    
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_html(welcome_text, reply_markup=reply_markup)
 
-@bot.message_handler(content_types=['photo', 'text', 'document'])
-def handle_payment_proof(message):
-    if message.from_user.id == ADMIN_ID:
-        bot.reply_to(message, "⚠️ እርስዎ አስተዳዳሪ (Admin) ነዎት። ተጠቃሚዎች የሚልኩት የክፍያ ማረጋገጫ ወደዚህ ይመጣል።")
+async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    book_key = query.data
+    
+    if book_key in BOOKS:
+        book = BOOKS[book_key]
+        context.user_data['selected_book'] = book_key
+        
+        text = (
+            f"📚 <b>የመረጡት መጽሐፍ:</b> {book['title']}\n"
+            f"💰 <b>ዋጋ:</b> {book['price']}\n\n"
+            "መጽሐፉን ለመግዛት እባክዎ ከታች ባሉት የክፍያ አካውንቶች ክፍያውን ይፈጽሙ፡\n\n"
+            "🟢 <b>Telebirr:</b> 0940277822 (workiye Nigusu)\n"
+            "🏦 <b>የኢትዮጵያ ንግድ ባንክ (CBE):</b> 1000307290247\n\n"
+            "ክፍያውን ከፈጸሙ በኋላ <b>የባንኩን ወይም የቴሌቢርን የደረሰኝ ፎቶ (Screenshot)</b> ወደዚህ ቦት ይላኩ!"
+        )
+        await query.message.reply_html(text)
+
+async def handle_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    book_key = context.user_data.get('selected_book')
+    
+    if not book_key:
+        await update.message.reply_text("እባክዎ መጀመሪያ /start በመጫን መጽሐፍ ይምረጡ።")
         return
 
-    user_id = message.from_user.id
-    user_name = message.from_user.first_name
-    username = f"@{message.from_user.username}" if message.from_user.username else "የሌለው"
-
-    markup = InlineKeyboardMarkup()
-    markup.row(
-        InlineKeyboardButton("✅ አጽድቅ (Approve)", callback_data=f"approve_{user_id}"),
-        InlineKeyboardButton("❌ ውድቅ አድርግ (Reject)", callback_data=f"reject_{user_id}")
-    )
-
-    forward_text = (
-        f"📥 **አዲስ የክፍያ ማረጋገጫ ደርሷል!**\n\n"
-        f"👤 ስም: {user_name}\n"
-        f"🔗 ዩዘርናም: {username}\n"
-        f"🆔 User ID: `{user_id}`"
-    )
-
-    if message.photo:
-        bot.send_photo(ADMIN_ID, message.photo[-1].file_id, caption=forward_text, reply_markup=markup, parse_mode="Markdown")
-    elif message.document:
-        bot.send_document(ADMIN_ID, message.document.file_id, caption=forward_text, reply_markup=markup, parse_mode="Markdown")
-    else:
-        bot.send_message(ADMIN_ID, f"{forward_text}\n\n💬 መልዕክት/TxID: {message.text}", reply_markup=markup, parse_mode="Markdown")
-
-    bot.reply_to(message, "✅ የክፍያ ማረጋገጫዎ ደርሶናል! አስተዳዳሪው ሲያረጋግጠው ፒዲኤፉ ወዲያውኑ ይላክልዎታል። እናመሰግናለን!")
-
-@bot.callback_query_handler(func=lambda call: True)
-def callback_query(call):
-    try:
-        action, target_user_id_str = call.data.split("_")
-        target_user_id = int(target_user_id_str)
-    except Exception:
-        bot.answer_callback_query(call.id, "⚠️ ስህተት ተፈጥሯል!")
-        return
-
-    if action == "approve":
-        bot.send_message(target_user_id, "🎉 ክፍያዎ በትክክል ጸድቋል! መጽሐፉን ከዚህ በታች ማውረድ ይችላሉ። እናመሰግናለን! 📚")
-        try:
-            with open(PDF_FILE_PATH, "rb") as pdf_file:
-                bot.send_document(target_user_id, pdf_file, protect_content=True)
-            bot.answer_callback_query(call.id, "ተጠቃሚው ጸድቆ ፒዲኤፉ ተልኳል!")
-        except FileNotFoundError:
-            bot.send_message(target_user_id, "⚠️ የፒዲኤፍ ፋይሉ በሲስተሙ አልተገኘም፤ እባክዎ አስተዳዳሪውን ያነጋግሩ።")
-            bot.send_message(ADMIN_ID, "⚠️ ማስጠንቀቂያ: workiye_book.pdf ፋይሉ በቦቱ አቃፊ ውስጥ አልተገኘም!")
+    if update.message.photo:
+        # ለጊዜው አውቶማቲክ እንዲልክ የሚከተለውን ኮድ እንጠቀማለን (በኋላ በአስተዳዳሪ ማረጋገጫ መቀየር ይችላሉ)
+        book = BOOKS[book_key]
+        file_name = book['file']
+        
+        await update.message.reply_text("✅ የክፍያ ማረጋገጫዎ ደርሷል! መጽሐፍዎ ደህንነቱ በተጠበቀ ሁኔታ እየተላከ ነው...")
         
         try:
-            if call.message.photo:
-                bot.edit_message_caption(chat_id=call.message.chat.id, message_id=call.message.message_id, caption=f"{call.message.caption}\n\n✅ **ጸድቋል (Approved)**", parse_mode="Markdown")
-            else:
-                bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=f"{call.message.text}\n\n✅ **ጸድቋል (Approved)**", parse_mode="Markdown")
-        except Exception:
-            pass
+            # 💡 protect_content=True ማለት ተጠቃሚው እንዳያወርድ፣ እንዳይቀዳ (Forward) እና እንዳይቆርጥ ይከለክላል
+            with open(file_name, 'rb') as pdf_file:
+                await update.message.reply_document(
+                    document=pdf_file,
+                    caption=f"📖 <b>{book['title']}</b>\n\nይህ መጽሐፍ ለግል ንባብ ብቻ የተዘጋጀ ነው። የ π / የቅጂ መብት የተጠበቀ ነው።",
+                    parse_mode="HTML",
+                    protect_content=True  # 🔒 ማውረድ እና ፎርዋርድ ማድረግን ይከለክላል
+                )
+        except Exception as e:
+            await update.message.reply_text(f"ይቅርታ፣ ፋይሉን መላክ አልተቻለም። እባክዎ አስተዳዳሪውን ያነጋገሩ። (ስህተት: {e})")
+            
+        # ከተላከ በኋላ የተመረጠውን መጽሐፍ ማጽዳት
+        context.user_data['selected_book'] = None
+    else:
+        await update.message.reply_text("እባክዎ ትክክለኛ የክፍያ ደረሰኝ ፎቶ (Screenshot) ይላኩ።")
 
-    elif action == "reject":
-        bot.send_message(target_user_id, "❌ ይቅርታ፣ የክፍያ ማረጋገጫዎ አልተረጋገጠም። እባክዎ በትክክል እንደገና ይሞክሩ።")
-        bot.answer_callback_query(call.id, "ክፍያው ውድቅ ተደርጓል።")
-        try:
-            if call.message.photo:
-                bot.edit_message_caption(chat_id=call.message.chat.id, message_id=call.message.message_id, caption=f"{call.message.caption}\n\n❌ **ውድቅ ተደርጓል (Rejected)**", parse_mode="Markdown")
-            else:
-                bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=f"{call.message.text}\n\n❌ **ውድቅ ተደርጓል (Rejected)**", parse_mode="Markdown")
-        except Exception:
-            pass
+def main():
+    app = ApplicationBuilder().token(TOKEN).build()
+    
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CallbackQueryHandler(button_handler))
+    app.add_handler(MessageHandler(filters.PHOTO | filters.TEXT & ~filters.COMMAND, handle_payment))
+    
+    print("ቦቱ በመሥራት ላይ ነው...")
+    app.run_polling()
 
 if __name__ == "__main__":
-    print("🤖 Starting Flask Keep-Alive Server...")
-    keep_alive()
-    print("🤖 Telegram Bot is running with infinity polling...")
-    bot.infinity_polling(skip_pending=True)
+    main()

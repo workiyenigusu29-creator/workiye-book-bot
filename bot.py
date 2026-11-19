@@ -1,7 +1,7 @@
 import os
 import telebot
 
-BOT_TOKEN = os.environ.get("9000383726:AAEjB5oyItxLQnyidModpHop4H66IMhlL3s")
+BOT_TOKEN = "9000383726:AAEjB5oyItxLQnyidModpHop4H66IMhlL3s"
 ADMIN_IDS = {741140918}
 
 # Map book codes to your PDF filenames

@@ -203,7 +203,7 @@ def deliver_book(target_user_id, book):
 
     bot.send_message(
         target_user_id,
-        f"🎉 ክፍያዎ በራስ-ሰር ተረጋግጧል! ስለገዙን እናመሰግናለን።\n📖 **{book['title']}** እነሆ፦",
+        f"🎉 ክፍያዎ ተረጋግጧል! ስለገዙን እናመሰግናለን።\n📖 **{book['title']}** እነሆ፦",
         parse_mode="Markdown",
         protect_content=True,
     )
@@ -216,23 +216,32 @@ def deliver_book(target_user_id, book):
     return True, None
 
 
-def forward_flag_to_admin(message, reason: str):
+def forward_review_to_admin(message, reason: str):
     user = message.from_user
     uname = f"@{user.username}" if user.username else "No username"
     book_id = user_selected_book.get(user.id)
     book_title = BOOKS[book_id]["title"] if book_id in BOOKS else "Not selected"
+    book_token = book_id if book_id in BOOKS else "none"
+
+    markup = InlineKeyboardMarkup(row_width=2)
+    markup.add(
+        InlineKeyboardButton("✅ Approve", callback_data=f"doc_approve|{user.id}|{book_token}"),
+        InlineKeyboardButton("❌ Disqualify", callback_data=f"doc_disqualify|{user.id}|{book_token}"),
+    )
+
     try:
         bot.forward_message(ADMIN_ID, message.chat.id, message.message_id)
         bot.send_message(
             ADMIN_ID,
-            f"⚠️ **Flagged / Unverified Submission (No Book Sent)**\n"
+            f"📄 **Review Required**\n"
             f"👤 **User:** {user.first_name or 'User'} ({uname}) | ID: `{user.id}`\n"
             f"📚 **Selected Book:** {book_title}\n"
             f"📌 **Reason:** {reason}",
             parse_mode="Markdown",
+            reply_markup=markup,
         )
     except Exception as e:
-        print(f"Failed to forward flagged message to admin: {e}")
+        print(f"Failed to forward review item to admin: {e}")
 
 
 @bot.message_handler(commands=["start", "books"])
@@ -295,13 +304,65 @@ def handle_back_to_list(call):
     )
 
 
+@bot.callback_query_handler(func=lambda call: call.data.startswith(("doc_approve|", "doc_disqualify|")))
+def handle_admin_review_decision(call):
+    if call.from_user.id != ADMIN_ID:
+        bot.answer_callback_query(call.id, "ፈቃድ የለዎትም!")
+        return
+
+    action, target_user_str, book_token = call.data.split("|", 2)
+    target_user_id = int(target_user_str)
+    book_id = book_token if book_token != "none" else user_selected_book.get(target_user_id)
+
+    if action == "doc_disqualify":
+        user_selected_book.pop(target_user_id, None)
+        try:
+            bot.send_message(
+                target_user_id,
+                "❌ የላኩት ሰነድ/ማስረጃ ውድቅ ተደርጓል (Disqualified)። መጽሐፉ አልተላከም።",
+            )
+            bot.edit_message_text(
+                chat_id=call.message.chat.id,
+                message_id=call.message.message_id,
+                text=call.message.text + "\n\n❌ **Disqualified by Admin (No Book Sent)**",
+                parse_mode="Markdown",
+            )
+            bot.answer_callback_query(call.id, "Disqualified.")
+        except Exception as e:
+            bot.answer_callback_query(call.id, f"Error: {e}", show_alert=True)
+        return
+
+    # action == "doc_approve"
+    book = BOOKS.get(book_id)
+    if not book:
+        bot.answer_callback_query(call.id, "No book selected by buyer.", show_alert=True)
+        return
+
+    ok, err = deliver_book(target_user_id, book)
+    if not ok:
+        bot.answer_callback_query(call.id, f"Delivery failed: {err}", show_alert=True)
+        return
+
+    user_selected_book.pop(target_user_id, None)
+    try:
+        bot.edit_message_text(
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            text=call.message.text + f"\n\n✅ **Approved by Admin — Sent:** {book['title']}",
+            parse_mode="Markdown",
+        )
+        bot.answer_callback_query(call.id, "Approved & book sent.")
+    except Exception as e:
+        bot.answer_callback_query(call.id, f"Sent, edit failed: {e}", show_alert=True)
+
+
 @bot.message_handler(content_types=["document", "photo"])
 def handle_doc_or_photo(message):
-    kind = "document" if message.content_type == "document" else "photo screenshot"
-    forward_flag_to_admin(message, f"Buyer sent a {kind} instead of verified CBE text")
+    kind = "document" if message.content_type == "document" else "photo"
+    forward_review_to_admin(message, f"Buyer sent a {kind}")
     bot.reply_to(
         message,
-        "⚠️ የላኩት ፋይል/ፎቶ በራስ-ሰር አልተረጋገጠም፤ ለክትትል ለአድሚን ተላልፏል። እባክዎ ቀኑ እና ሰዓቱ ያሉበትን **የCBE ማረጋገጫ መልዕክት ጽሑፍ** ይላኩ።",
+        "📩 ሰነድዎ/ፎቶዎ ለግምገማ ለአድሚን ተልኳል። እባክዎ የአድሚን ውሳኔ ይጠብቁ ወይም የCBE ማረጋገጫ ጽሑፍ ይላኩ።",
     )
 
 
@@ -324,10 +385,10 @@ def handle_payment_message(message):
     msg_dt = get_effective_message_datetime(message)
     is_valid, result = validate_payment_message(text, msg_dt)
     if not is_valid:
-        forward_flag_to_admin(message, result)
+        forward_review_to_admin(message, result)
         bot.reply_to(
             message,
-            f"❌ በራስ-ሰር ማጽደቅ አልተቻለም፦ {result}",
+            f"❌ በራስ-ሰር ማጽደቅ አልተቻለም፦ {result} (ለግምገማ ለአድሚን ተልኳል)",
             parse_mode="Markdown",
         )
         return

@@ -1,17 +1,19 @@
 import os
+import threading
+from flask import Flask
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 BOT_TOKEN = os.getenv("BOT_TOKEN", "9000383726:AAF_1RKfb3jlwdpJir0-CN2nfPltnET4cGY")
 
-# Replace with your actual Telegram numeric User ID so payment receipts go to you
+# Admin Telegram numeric User ID
 ADMIN_ID = 741140918
 
-# Update with your actual payment details
+# Payment details shown to buyers
 PAYMENT_INFO = (
     "💳 **የክፍያ አማራጮች (Payment Methods):**\n"
-    "• **Telebirr:** `0940277822` (ወርቅዬ ንጉሱ)\n"
-    "• **CBE:** `1000307290247` (ወርቅዬ ንጉሱ)\n\n"
+    "• **Telebirr:** `0940277822` (ወርቅዬ ንጉሱ ቸሩ)\n"
+    "• **CBE:** `1000307290247` (ወርቅዬ ንጉሱ ቸሩ)\n\n"
     "📸 ክፍያውን ከፈጸሙ በኋላ **የደረሰኙን ፎቶ (Screenshot)** እዚህ ይላኩ።"
 )
 
@@ -49,9 +51,21 @@ BOOKS = {
 }
 
 bot = telebot.TeleBot(BOT_TOKEN)
+app = Flask(__name__)
 
 # Track selected book per user: {user_id: "book_1"}
 user_selected_book = {}
+
+
+@app.route("/")
+@app.route("/health")
+def home():
+    return "Bot is running", 200
+
+
+def run_web_server():
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
 
 
 def get_books_keyboard():
@@ -226,5 +240,7 @@ def handle_admin_reject(call):
 
 
 if __name__ == "__main__":
-    print("Bot is running...")
-    bot.infinity_polling()
+    server_thread = threading.Thread(target=run_web_server, daemon=True)
+    server_thread.start()
+    print("Web server & bot are running...")
+    bot.infinity_polling(skip_pending=True)

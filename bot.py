@@ -1,4 +1,6 @@
+from datetime import datetime, timedelta
 import os
+import re
 import threading
 import time
 from flask import Flask
@@ -11,12 +13,16 @@ BOT_TOKEN = os.getenv("BOT_TOKEN", "9000383726:AAF_1RKfb3jlwdpJir0-CN2nfPltnET4c
 # Admin Telegram numeric User ID
 ADMIN_ID = 741140918
 
-# Payment details shown to buyers
+# Required markers and freshness window
+REQUIRED_PHONE_SNIPPET = "127"
+CBE_ACCOUNT = "1000307290247"
+MAX_AGE_MINUTES = 30
+
 PAYMENT_INFO = (
     "💳 **የክፍያ አማራጮች (Payment Methods):**\n"
     "• **Telebirr:** `0940277822` (ወርቅዬ ንጉሱ ቸሩ)\n"
     "• **CBE:** `1000307290247` (ወርቅዬ ንጉሱ ቸሩ)\n\n"
-    "📸 ክፍያውን ከፈጸሙ በኋላ **የደረሰኙን ፎቶ (Screenshot)** እዚህ ይላኩ።"
+    f"📩 ክፍያውን ከፈጸሙ በኋላ **የCBE ማረጋገጫ መልዕክቱን** (በቀጥታ ወይም **Forward** አድርገው) እዚህ ይላኩ። በ `{MAX_AGE_MINUTES}` ደቂቃ ውስጥ የተላከ እና `127` ያለበት መሆን አለበት።"
 )
 
 BOOKS = {
@@ -58,6 +64,9 @@ app = Flask(__name__)
 # Track selected book per user: {user_id: "book_1"}
 user_selected_book = {}
 
+# Track used transaction references in current process
+used_tx_refs = set()
+
 
 @app.route("/", methods=["GET", "HEAD"])
 @app.route("/health", methods=["GET", "HEAD"])
@@ -76,6 +85,154 @@ def get_books_keyboard():
         btn_text = f"📚 {info['title']} — {info['price']}"
         markup.add(InlineKeyboardButton(btn_text, callback_data=f"select_{book_id}"))
     return markup
+
+
+def get_effective_message_datetime(message) -> datetime:
+    ts = getattr(message, "forward_date", None) or message.date
+    return datetime.fromtimestamp(ts)
+
+
+def get_forward_source_label(message) -> str:
+    if getattr(message, "forward_from_chat", None):
+        title = message.forward_from_chat.title or "Channel/Chat"
+        return f"Forwarded Chat: {title} ({message.forward_from_chat.id})"
+    if getattr(message, "forward_from", None):
+        u = message.forward_from
+        uname = f"@{u.username}" if u.username else f"ID:{u.id}"
+        return f"Forwarded User: {u.first_name or ''} ({uname})".strip()
+    if getattr(message, "forward_date", None):
+        return "Forwarded (Hidden Source)"
+    return "Direct Text"
+
+
+def parse_receipt_datetime(text: str, fallback_now: datetime):
+    date_patterns = [
+        (r"\b(\d{4})-(\d{1,2})-(\d{1,2})\b", "YMD"),
+        (r"\b(\d{1,2})/(\d{1,2})/(\d{4})\b", "DMY"),
+        (r"\b(\d{1,2})-(\d{1,2})-(\d{4})\b", "DMY"),
+    ]
+    found_date = None
+    for pattern, fmt in date_patterns:
+        m = re.search(pattern, text)
+        if m:
+            try:
+                if fmt == "YMD":
+                    y, mo, d = int(m.group(1)), int(m.group(2)), int(m.group(3))
+                else:
+                    d, mo, y = int(m.group(1)), int(m.group(2)), int(m.group(3))
+                found_date = datetime(y, mo, d).date()
+                break
+            except ValueError:
+                pass
+
+    time_12 = re.search(r"\b(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)\b", text, flags=re.IGNORECASE)
+    time_24 = re.search(r"\b([01]?\d|2[0-3]):([0-5]\d)(?::[0-5]\d)?\b", text)
+
+    found_time = None
+    if time_12:
+        hour = int(time_12.group(1))
+        minute = int(time_12.group(2))
+        ampm = time_12.group(3).upper()
+        if ampm == "PM" and hour != 12:
+            hour += 12
+        elif ampm == "AM" and hour == 12:
+            hour = 0
+        if 0 <= hour <= 23 and 0 <= minute <= 59:
+            found_time = (hour, minute)
+    elif time_24:
+        hour = int(time_24.group(1))
+        minute = int(time_24.group(2))
+        found_time = (hour, minute)
+
+    if not found_date and not found_time:
+        return None, "በመልዕክቱ ውስጥ ቀን ወይም ሰዓት አልተገኘም።"
+
+    target_date = found_date or fallback_now.date()
+    hour, minute = found_time or (fallback_now.hour, fallback_now.minute)
+    try:
+        parsed_dt = datetime(target_date.year, target_date.month, target_date.day, hour, minute)
+    except ValueError:
+        return None, "የተገኘው የቀን ወይም የሰዓት ቅርጸት ትክክል አይደለም።"
+
+    return parsed_dt, None
+
+
+def validate_payment_message(text: str, msg_dt: datetime):
+    now = datetime.now()
+
+    if (now - msg_dt) > timedelta(minutes=MAX_AGE_MINUTES):
+        return False, f"የመልዕክቱ ቀን/ሰዓት ከ `{MAX_AGE_MINUTES}` ደቂቃ በላይ አልፎታል።"
+
+    lowered = text.lower()
+    has_cbe = (
+        "cbe" in lowered
+        or "commercial bank of ethiopia" in lowered
+        or CBE_ACCOUNT in text
+    )
+    has_phone_127 = REQUIRED_PHONE_SNIPPET in text
+
+    if not has_cbe:
+        return False, "መልዕክቱ የCBE ክፍያ ማረጋገጫ መሆኑ አልተረጋገጠም።"
+    if not has_phone_127:
+        return False, f"በመልዕክቱ ውስጥ `{REQUIRED_PHONE_SNIPPET}` አልተገኘም።"
+
+    receipt_dt, dt_err = parse_receipt_datetime(text, now)
+    if dt_err:
+        return False, dt_err
+
+    if receipt_dt.date() != now.date():
+        return False, f"የደረሰኙ ቀን (`{receipt_dt.date()}`) የዛሬ ቀን (`{now.date()}`) አይደለም።"
+
+    age = abs(now - receipt_dt)
+    if age > timedelta(minutes=MAX_AGE_MINUTES):
+        return False, f"የደረሰኙ ሰዓት (`{receipt_dt.strftime('%H:%M')}`) ከ `{MAX_AGE_MINUTES}` ደቂቃ በላይ ልዩነት አለው።"
+
+    ref_match = re.search(r"\b(?:FT[A-Z0-9]{6,}|[A-Z0-9]{8,})\b", text, flags=re.IGNORECASE)
+    tx_ref = ref_match.group(0).upper() if ref_match else None
+
+    if tx_ref and tx_ref in used_tx_refs:
+        return False, f"ይህ የግብይት መለያ (`{tx_ref}`) ቀደም ብሎ ጥቅም ላይ ውሏል።"
+
+    return True, (tx_ref, receipt_dt)
+
+
+def deliver_book(target_user_id, book):
+    file_path = book["file"]
+    if not os.path.exists(file_path):
+        return False, f"File missing: {file_path}"
+
+    bot.send_message(
+        target_user_id,
+        f"🎉 ክፍያዎ በራስ-ሰር ተረጋግጧል! ስለገዙን እናመሰግናለን።\n📖 **{book['title']}** እነሆ፦",
+        parse_mode="Markdown",
+        protect_content=True,
+    )
+    with open(file_path, "rb") as pdf_file:
+        bot.send_document(
+            target_user_id,
+            pdf_file,
+            protect_content=True,
+        )
+    return True, None
+
+
+def forward_flag_to_admin(message, reason: str):
+    user = message.from_user
+    uname = f"@{user.username}" if user.username else "No username"
+    book_id = user_selected_book.get(user.id)
+    book_title = BOOKS[book_id]["title"] if book_id in BOOKS else "Not selected"
+    try:
+        bot.forward_message(ADMIN_ID, message.chat.id, message.message_id)
+        bot.send_message(
+            ADMIN_ID,
+            f"⚠️ **Flagged / Unverified Submission (No Book Sent)**\n"
+            f"👤 **User:** {user.first_name or 'User'} ({uname}) | ID: `{user.id}`\n"
+            f"📚 **Selected Book:** {book_title}\n"
+            f"📌 **Reason:** {reason}",
+            parse_mode="Markdown",
+        )
+    except Exception as e:
+        print(f"Failed to forward flagged message to admin: {e}")
 
 
 @bot.message_handler(commands=["start", "books"])
@@ -138,112 +295,87 @@ def handle_back_to_list(call):
     )
 
 
-@bot.message_handler(content_types=["photo"])
-def handle_payment_receipt(message):
+@bot.message_handler(content_types=["document", "photo"])
+def handle_doc_or_photo(message):
+    kind = "document" if message.content_type == "document" else "photo screenshot"
+    forward_flag_to_admin(message, f"Buyer sent a {kind} instead of verified CBE text")
+    bot.reply_to(
+        message,
+        "⚠️ የላኩት ፋይል/ፎቶ በራስ-ሰር አልተረጋገጠም፤ ለክትትል ለአድሚን ተላልፏል። እባክዎ ቀኑ እና ሰዓቱ ያሉበትን **የCBE ማረጋገጫ መልዕክት ጽሑፍ** ይላኩ።",
+    )
+
+
+@bot.message_handler(func=lambda message: True, content_types=["text"])
+def handle_payment_message(message):
+    text = (message.text or "").strip()
+    if text.startswith("/"):
+        return
+
     user_id = message.from_user.id
     book_id = user_selected_book.get(user_id)
 
     if not book_id:
         bot.reply_to(
             message,
-            "⚠️ እባክዎ መጀመሪያ /start በመጫን የሚፈልጉትን መጽሐፍ ይምረጡ፣ ከዚያም ደረሰኙን ይላኩ።",
+            "⚠️ እባክዎ መጀመሪያ /start በመጫን የሚፈልጉትን መጽሐፍ ይምረጡ፣ ከዚያም የCBE ማረጋገጫ መልዕክቱን ይላኩ።",
         )
         return
 
+    msg_dt = get_effective_message_datetime(message)
+    is_valid, result = validate_payment_message(text, msg_dt)
+    if not is_valid:
+        forward_flag_to_admin(message, result)
+        bot.reply_to(
+            message,
+            f"❌ በራስ-ሰር ማጽደቅ አልተቻለም፦ {result}",
+            parse_mode="Markdown",
+        )
+        return
+
+    tx_ref, receipt_dt = result
     book = BOOKS[book_id]
     user_name = message.from_user.first_name or "Customer"
     username = f"@{message.from_user.username}" if message.from_user.username else "No username"
+    source_label = get_forward_source_label(message)
 
     bot.reply_to(
         message,
-        "✅ ደረሰኝዎ ደርሶናል! ክፍያዎ እንደተረጋገጠ መጽሐፉ ወዲያውኑ ይላክልዎታል።",
+        "✅ የCBE መልዕክት፣ `127`፣ እንዲሁም ቀን እና ሰዓት ተረጋግጠዋል! መጽሐፉ አሁን እየተላከ ነው...",
+        parse_mode="Markdown",
     )
 
-    admin_caption = (
-        f"🔔 **አዲስ የክፍያ ጥያቄ (New Order)**\n"
+    ok, err = deliver_book(user_id, book)
+    if not ok:
+        bot.send_message(
+            user_id,
+            "❌ መጽሐፉን ለመላክ ጊዜያዊ ችግር አጋጥሟል። እባክዎ ቆይተው ይሞክሩ።",
+        )
+        bot.send_message(
+            ADMIN_ID,
+            f"⚠️ Delivery failed for `{user_id}` ({book['title']}): {err}",
+            parse_mode="Markdown",
+        )
+        return
+
+    if tx_ref:
+        used_tx_refs.add(tx_ref)
+    user_selected_book.pop(user_id, None)
+
+    admin_text = (
+        f"🤖 **በራስ-ሰር የተላከ ትዕዛዝ (Auto-Approved)**\n"
         f"👤 **ገዢ:** {user_name} ({username})\n"
         f"🆔 **User ID:** `{user_id}`\n"
+        f"📡 **Source:** `{source_label}`\n"
         f"📚 **መጽሐፍ:** {book['title']}\n"
-        f"💰 **ዋጋ:** {book['price']}"
+        f"💰 **ዋጋ:** {book['price']}\n"
+        f"🔖 **Ref:** `{tx_ref or 'N/A'}`\n"
+        f"🕒 **Receipt Time:** `{receipt_dt.strftime('%Y-%m-%d %H:%M')}`\n"
+        f"📩 **Msg Date:** `{msg_dt.strftime('%Y-%m-%d %H:%M')}`"
     )
-    approve_markup = InlineKeyboardMarkup(row_width=2)
-    approve_markup.add(
-        InlineKeyboardButton("✅ አጽድቅና ላክ", callback_data=f"approve_{user_id}_{book_id}"),
-        InlineKeyboardButton("❌ ውድቅ አድርግ", callback_data=f"reject_{user_id}"),
-    )
-
-    photo_file_id = message.photo[-1].file_id
-    bot.send_photo(
-        ADMIN_ID,
-        photo_file_id,
-        caption=admin_caption,
-        parse_mode="Markdown",
-        reply_markup=approve_markup,
-    )
-
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith("approve_"))
-def handle_admin_approve(call):
-    if call.from_user.id != ADMIN_ID:
-        bot.answer_callback_query(call.id, "ፈቃድ የለዎትም!")
-        return
-
-    _, target_user_id_str, book_id = call.data.split("_", 2)
-    target_user_id = int(target_user_id_str)
-    book = BOOKS.get(book_id)
-
-    if not book:
-        bot.answer_callback_query(call.id, "Book not found in dictionary.")
-        return
-
-    file_path = book["file"]
-    if not os.path.exists(file_path):
-        bot.answer_callback_query(call.id, f"File missing: {file_path}", show_alert=True)
-        return
-
     try:
-        bot.send_message(
-            target_user_id,
-            f"🎉 ክፍያዎ ተረጋግጧል! ስለገዙን እናመሰግናለን።\n📖 **{book['title']}** እነሆ፦",
-            parse_mode="Markdown",
-            protect_content=True,
-        )
-        with open(file_path, "rb") as pdf_file:
-            bot.send_document(
-                target_user_id,
-                pdf_file,
-                protect_content=True,
-            )
-
-        bot.edit_message_caption(
-            chat_id=call.message.chat.id,
-            message_id=call.message.message_id,
-            caption=call.message.caption + "\n\n✅ **ጸድቋል — መጽሐፉ ተልኳል!**",
-            parse_mode="Markdown",
-        )
-        bot.answer_callback_query(call.id, "መጽሐፉ ተልኳል!")
+        bot.send_message(ADMIN_ID, admin_text, parse_mode="Markdown")
     except Exception as e:
-        bot.answer_callback_query(call.id, f"Error: {e}", show_alert=True)
-
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith("reject_"))
-def handle_admin_reject(call):
-    if call.from_user.id != ADMIN_ID:
-        bot.answer_callback_query(call.id, "ፈቃድ የለዎትም!")
-        return
-
-    target_user_id = int(call.data.split("_")[1])
-    bot.send_message(
-        target_user_id,
-        "❌ የላኩት የክፍያ ደረሰኝ ትክክለኛ አይደለም ወይም አልተረጋገጠም። እባክዎ ትክክለኛውን ደረሰኝ በድጋሚ ይላኩ።",
-    )
-    bot.edit_message_caption(
-        chat_id=call.message.chat.id,
-        message_id=call.message.message_id,
-        caption=call.message.caption + "\n\n❌ **ውድቅ ተደርጓል!**",
-        parse_mode="Markdown",
-    )
-    bot.answer_callback_query(call.id, "ውድቅ ተደርጓል።")
+        print(f"Failed to notify admin: {e}")
 
 
 def run_polling():

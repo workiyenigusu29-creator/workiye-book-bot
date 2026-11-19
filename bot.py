@@ -1,24 +1,70 @@
 import os
+import threading
+from flask import Flask
 import telebot
+from telebot import types
 
-BOT_TOKEN = "9000383726:AAEjB5oyItxLQnyidModpHop4H66IMhlL3s"
+BOT_TOKEN = os.environ.get("BOT_TOKEN") or "9000383726:AAEjB5oyItxLQnyidModpHop4H66IMhlL3s"
 ADMIN_IDS = {741140918}
 
-# Map book codes to your PDF filenames
 BOOKS = {
-    "book_1": ("ሀገር በቀል እፅዋትና የህክምና ጥቅማቸው", "medcine book.pdf"),
-    "book_2": ("የትምህርት ሙያዊ ብቃትና ተግባራዊ አፈጻጸም", "የትምህርት ሙያዊ ብቃት.pdf"),
-    "book_3": ("Professional competence and practical performance in education", "Educational competency.pdf"),
-    "book_4": ("የመሪነት ጥበብ", "የመሪነት ጥበብ.pdf"),
-    "book_5": ("የስኬት ምስጢር", "የስኬት ምስጢር.pdf"),
-    "book_6": ("የሲቭል ሰርቭስ የብቃት ምዘና ጥያቄዎች 457 በላይ", "civil service exam.pdf"),
+    "book_1": {
+        "title": "ሀገር በቀል እፅዋትና የህክምና ጥቅማቸው",
+        "price": "100 ብር",
+        "file": "medcine book.pdf",
+    },
+    "book_2": {
+        "title": "የትምህርት ሙያዊ ብቃትና ተግባራዊ አፈጻጸም",
+        "price": "150 ብር",
+        "file": "የትምህርት ሙያዊ ብቃት.pdf",
+    },
+    "book_3": {
+        "title": "Professional competence and practical performance in education",
+        "price": "150 ብር",
+        "file": "Educational competency.pdf",
+    },
+    "book_4": {
+        "title": "የመሪነት ጥበብ",
+        "price": "200 ብር",
+        "file": "የመሪነት ጥበብ.pdf",
+    },
+    "book_5": {
+        "title": "የስኬት ምስጢር",
+        "price": "200 ብር",
+        "file": "የስኬት ምስጢር.pdf",
+    },
+    "book_6": {
+        "title": "የሲቭል ሰርቭስ የብቃት ምዘና ጥያቄዎች 457 በላይ",
+        "price": "200 ብር",
+        "file": "civil service exam.pdf",
+    },
 }
 
+# Stores each buyer's currently selected book: {buyer_user_id: book_code}
+user_selected_book = {}
+
 bot = telebot.TeleBot(BOT_TOKEN)
+app = Flask(__name__)
+
+
+@app.route("/")
+def home():
+    return "Bot is running!"
 
 
 def is_admin(user_id: int) -> bool:
     return user_id in ADMIN_IDS
+
+
+def build_book_keyboard():
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    for code, info in BOOKS.items():
+        btn = types.InlineKeyboardButton(
+            text=f"📖 {info['title']} — {info['price']}",
+            callback_data=f"select_{code}",
+        )
+        markup.add(btn)
+    return markup
 
 
 @bot.message_handler(commands=["start"])
@@ -26,31 +72,101 @@ def handle_start(message):
     user_id = message.from_user.id
 
     if is_admin(user_id):
-        book_list = "\n".join([f"• `{code}` → {title}" for code, (title, _) in BOOKS.items()])
         bot.reply_to(
             message,
             f"ሰላም አድሚን ወርቅዬ (ID: `{user_id}`)! 👑\n\n"
-            "የአድሚን ትዕዛዞች፡\n"
-            "• `/sendbook <user_id> <book_code>` — PDF መጽሐፍ ለገዥ ለመላክ\n"
-            "• `/id` — የእርስዎን ID ለማየት\n\n"
-            f"የመጽሐፍ ኮዶች (Book Codes):\n{book_list}",
+            "የገዥዎች የክፍያ ደረሰኝ ሲመጣ ከስር ባለው **✅ አጽድቅና መጽሐፍ ላክ** ቁልፍ በቀጥታ ማጽደቅ ይችላሉ፣ ወይም `/sendbook <user_id> <book_code>` መጠቀም ይችላሉ።",
             parse_mode="Markdown",
         )
-    else:
-        bot.reply_to(
-            message,
-            "ሰላም! ወደ የመጽሐፍ መሸጫ ቦት (@Lisanwork12_Bot) እንኳን ደህና መጡ። 📚\n\n"
-            "መጽሐፍ ለመግዛት፡\n"
-            "1. በድረ-ገጻችን ላይ የሚፈልጉትን መጽሐፍ ይምረጡና በTelebirr (0940277822) ወይም CBE (1000307290247) ይክፈሉ።\n"
-            "2. የክፍያ ደረሰኝ ፎቶ (Screenshot) እና የመጽሐፉን ስም እዚህ ይላኩ።\n"
-            "3. አድሚኑ እንዳረጋገጠ መጽሐፉ በቀጥታ እዚህ ይላክልዎታል።",
+        return
+
+    bot.send_message(
+        message.chat.id,
+        "ሰላም! ወደ የመጽሐፍ መሸጫ ቦት (@Lisanwork12_Bot) እንኳን ደህና መጡ። 📚\n\n"
+        "እባክዎ መጀመሪያ የሚፈልጉትን መጽሐፍ ከታች ይምረጡ፡-",
+        reply_markup=build_book_keyboard(),
+    )
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("select_"))
+def handle_book_selection(call):
+    user_id = call.from_user.id
+    book_code = call.data.replace("select_", "", 1)
+
+    if book_code not in BOOKS:
+        bot.answer_callback_query(call.id, "መጽሐፉ አልተገኘም።")
+        return
+
+    user_selected_book[user_id] = book_code
+    book = BOOKS[book_code]
+
+    bot.answer_callback_query(call.id, f"{book['title']} ተመርጧል")
+    bot.send_message(
+        call.message.chat.id,
+        f"✅ የመረጡት መጽሐፍ፡ **{book['title']}**\n"
+        f"💰 የሚከፈል ዋጋ፡ **{book['price']}**\n\n"
+        "💳 **ክፍያ የሚፈጽሙባቸው አካውንቶች፡**\n"
+        "🟢 Telebirr: `0940277822` (Workiye Nigusu)\n"
+        "🏦 CBE: `1000307290247`\n\n"
+        "📸 ክፍያውን ከፈጸሙ በኋላ **የደረሰኝ ፎቶ (Screenshot)** በዚህ ቻት ይላኩ። አድሚኑ ሲያረጋግጥ መጽሐፉ በPDF ይላክልዎታል።",
+        parse_mode="Markdown",
+    )
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("approve_"))
+def handle_admin_approval(call):
+    if not is_admin(call.from_user.id):
+        bot.answer_callback_query(call.id, "ለአድሚን ብቻ ነው።", show_alert=True)
+        return
+
+    # Format: approve_<buyer_id>_<book_code>
+    payload = call.data.replace("approve_", "", 1)
+    parts = payload.split("_", 1)
+    if len(parts) != 2:
+        bot.answer_callback_query(call.id, "የትዕዛዝ መረጃ ስህተት አለው።")
+        return
+
+    try:
+        buyer_id = int(parts[0])
+    except ValueError:
+        bot.answer_callback_query(call.id, "የገዥ ID ስህተት አለው።")
+        return
+
+    book_code = parts[1]
+    if book_code not in BOOKS:
+        bot.answer_callback_query(call.id, "መጽሐፉ አልተገኘም።")
+        return
+
+    book = BOOKS[book_code]
+    file_path = book["file"]
+
+    if not os.path.exists(file_path):
+        bot.answer_callback_query(call.id, f"ፋይሉ {file_path} አልተገኘም።", show_alert=True)
+        bot.send_message(call.from_user.id, f"⚠️ ፋይሉ `{file_path}` በሰርቨሩ ላይ አልተገኘም።", parse_mode="Markdown")
+        return
+
+    try:
+        with open(file_path, "rb") as pdf_file:
+            bot.send_document(
+                buyer_id,
+                pdf_file,
+                caption=(
+                    f"✅ ክፍያዎ ተረጋግጧል!\n"
+                    f"📖 መጽሐፍ፡ {book['title']}\n"
+                    f"አዘጋጅ፡ ወርቅዬ ንጉሱ ቸሩ\n"
+                    f"መልካም ንባብ!"
+                ),
+            )
+        bot.answer_callback_query(call.id, "መጽሐፉ ተልኳል! ✅")
+        bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=None)
+        bot.send_message(
+            call.from_user.id,
+            f"✅ ተጸድቋል! «{book['title']}» ለገዥ ID `{buyer_id}` ተልኳል።",
+            parse_mode="Markdown",
         )
-
-
-@bot.message_handler(commands=["id"])
-def handle_id(message):
-    role = "Admin 👑" if is_admin(message.from_user.id) else "User 👤"
-    bot.reply_to(message, f"User ID: `{message.from_user.id}`\nRole: {role}", parse_mode="Markdown")
+    except Exception as e:
+        bot.answer_callback_query(call.id, "መላክ አልተቻለም።", show_alert=True)
+        bot.send_message(call.from_user.id, f"❌ መጽሐፉን መላክ አልተቻለም፡ {e}")
 
 
 @bot.message_handler(commands=["sendbook"])
@@ -61,11 +177,7 @@ def handle_sendbook(message):
 
     parts = message.text.split()
     if len(parts) < 3:
-        bot.reply_to(
-            message,
-            "አጠቃቀም፡ `/sendbook <user_id> <book_code>`\nምሳሌ፡ `/sendbook 123456789 book_1`",
-            parse_mode="Markdown",
-        )
+        bot.reply_to(message, "አጠቃቀም፡ `/sendbook <user_id> <book_code>`", parse_mode="Markdown")
         return
 
     try:
@@ -76,12 +188,13 @@ def handle_sendbook(message):
 
     book_code = parts[2].lower()
     if book_code not in BOOKS:
-        bot.reply_to(message, f"❌ የመጽሐፍ ኮድ `{book_code}` አልተገኘም። (`book_1` እስከ `book_6` ይጠቀሙ)", parse_mode="Markdown")
+        bot.reply_to(message, f"❌ የመጽሐፍ ኮድ `{book_code}` አልተገኘም።", parse_mode="Markdown")
         return
 
-    title, file_path = BOOKS[book_code]
+    book = BOOKS[book_code]
+    file_path = book["file"]
     if not os.path.exists(file_path):
-        bot.reply_to(message, f"⚠️ ፋይሉ `{file_path}` በቦቱ ፎልደር ውስጥ አልተገኘም።", parse_mode="Markdown")
+        bot.reply_to(message, f"⚠️ ፋይሉ `{file_path}` በሰርቨሩ ላይ አልተገኘም።", parse_mode="Markdown")
         return
 
     try:
@@ -89,9 +202,9 @@ def handle_sendbook(message):
             bot.send_document(
                 target_user_id,
                 pdf_file,
-                caption=f"✅ ክፍያዎ ተረጋግጧል!\n📖 መጽሐፍ፡ {title}\nአዘጋጅ፡ ወርቅዬ ንጉሱ ቸሩ\nመልካም ንባብ!",
+                caption=f"✅ ክፍያዎ ተረጋግጧል!\n📖 መጽሐፍ፡ {book['title']}\nአዘጋጅ፡ ወርቅዬ ንጉሱ ቸሩ\nመልካም ንባብ!",
             )
-        bot.reply_to(message, f"✅ «{title}» ወደ User ID `{target_user_id}` በተሳካ ሁኔታ ተልኳል።", parse_mode="Markdown")
+        bot.reply_to(message, f"✅ «{book['title']}» ወደ User ID `{target_user_id}` ተልኳል።", parse_mode="Markdown")
     except Exception as e:
         bot.reply_to(message, f"❌ መጽሐፉን መላክ አልተቻለም፡ {e}")
 
@@ -99,23 +212,46 @@ def handle_sendbook(message):
 @bot.message_handler(content_types=["photo", "document", "text"])
 def handle_user_messages(message):
     user_id = message.from_user.id
-
-    # Admin messages are not treated as buyer payment receipts
     if is_admin(user_id):
         return
 
+    # Ignore plain text commands not caught above if user hasn't selected a book yet
+    selected_code = user_selected_book.get(user_id)
+    if not selected_code and message.content_type == "text":
+        bot.send_message(
+            message.chat.id,
+            "እባክዎ መጀመሪያ የሚፈልጉትን መጽሐፍ ይምረጡ፡-",
+            reply_markup=build_book_keyboard(),
+        )
+        return
+
+    book = BOOKS.get(selected_code, {
+        "title": "ያልተመረጠ መጽሐፍ (ገዥው በጽሑፍ ሊገልጽ ይችላል)",
+        "price": "—",
+    })
+    effective_code = selected_code or "book_1"
+
     username = f"@{message.from_user.username}" if message.from_user.username else "የለውም"
     full_name = message.from_user.first_name or "ገዥ"
+
+    approve_markup = types.InlineKeyboardMarkup()
+    approve_markup.add(
+        types.InlineKeyboardButton(
+            text=f"✅ አጽድቅና መጽሐፍ ላክ ({effective_code})",
+            callback_data=f"approve_{user_id}_{effective_code}",
+        )
+    )
 
     for admin_id in ADMIN_IDS:
         try:
             bot.send_message(
                 admin_id,
-                f"📩 **አዲስ የገዥ መልዕክት / ደረሰኝ**\n"
-                f"👤 ስም፡ {full_name} ({username})\n"
-                f"🆔 User ID: `{user_id}`\n\n"
-                f"መጽሐፍ ለመላክ፡ `/sendbook {user_id} book_1`",
+                f"📩 **አዲስ የክፍያ ማረጋገጫ ጥያቄ**\n"
+                f"👤 ገዥ፡ {full_name} ({username})\n"
+                f"🆔 User ID: `{user_id}`\n"
+                f"📚 የመረጠው መጽሐፍ፡ {book['title']} ({book['price']})",
                 parse_mode="Markdown",
+                reply_markup=approve_markup,
             )
             bot.forward_message(admin_id, message.chat.id, message.message_id)
         except Exception as e:
@@ -123,9 +259,15 @@ def handle_user_messages(message):
 
     bot.reply_to(
         message,
-        "✅ መልዕክትዎ እና የክፍያ ማረጋገጫዎ ለአድሚኑ ደርሷል።\n"
-        "እንደተረጋገጠ መጽሐፍዎ በዚህ ቻት ይላክልዎታል።",
+        "✅ የክፍያ ማረጋገጫዎ ለአድሚኑ ደርሷል። ክፍያው ሲረጋገጥ መጽሐፉ በዚህ ቻት ይላክልዎታል።",
     )
 
 
-bot.infinity_polling()
+def run_polling():
+    bot.infinity_polling(skip_pending=True)
+
+
+if __name__ == "__main__":
+    threading.Thread(target=run_polling, daemon=True).start()
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)

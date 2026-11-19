@@ -4,7 +4,10 @@ from flask import Flask
 import telebot
 from telebot import types
 
-BOT_TOKEN = os.environ.get("BOT_TOKEN") or "9000383726:AAEjB5oyItxLQnyidModpHop4H66IMhlL3s"
+BOT_TOKEN = (
+    os.environ.get("BOT_TOKEN")
+    or "9000383726:AAEjB5oyItxLQnyidModpHop4H66IMhlL3s"
+).strip()
 ADMIN_IDS = {741140918}
 
 BOOKS = {
@@ -40,16 +43,16 @@ BOOKS = {
     },
 }
 
-# Tracks last book selected per user: {user_id: book_code}
 user_choice = {}
 
-bot = telebot.TeleBot(BOT_TOKEN)
 app = Flask(__name__)
+bot = telebot.TeleBot(BOT_TOKEN)
 
 
 @app.route("/")
+@app.route("/health")
 def home():
-    return "Bot is running!"
+    return "Bot is running!", 200
 
 
 def is_admin(user_id: int) -> bool:
@@ -61,7 +64,7 @@ def books_text_and_keyboard():
     markup = types.InlineKeyboardMarkup(row_width=1)
 
     for idx, (code, info) in enumerate(BOOKS.items(), start=1):
-        lines.append(f"{idx}. {info['title']} — **{info['price']}** (`{code}`)")
+        lines.append(f"{idx}. {info['title']} — **{info['price']}**")
         markup.add(
             types.InlineKeyboardButton(
                 text=f"📖 {info['title']} ({info['price']})",
@@ -79,22 +82,35 @@ def books_text_and_keyboard():
     return "\n".join(lines), markup
 
 
-# STEP 1 & STEP 2: User clicks /start -> Bot displays book list with prices
-@bot.message_handler(commands=["start"])
-def step_1_2_start(message):
-    user_id = message.from_user.id
+def send_catalog(chat_id: int):
+    text, markup = books_text_and_keyboard()
+    bot.send_message(chat_id, text, parse_mode="Markdown", reply_markup=markup)
 
+
+@bot.message_handler(commands=["start"])
+def handle_start(message):
+    user_id = message.from_user.id
     if is_admin(user_id):
         bot.reply_to(
             message,
-            f"ሰላም አድሚን (ID: `{user_id}`)! 👑\n"
+            f"ሰላም አድሚን ወርቅዬ (ID: `{user_id}`)! 👑\n"
             "የገዥዎች የክፍያ Screenshot ሲመጣ በቁልፍ ማጽደቅ ወይም `/sendbook <user_id> <book_code>` መጠቀም ይችላሉ።",
             parse_mode="Markdown",
         )
         return
+    send_catalog(message.chat.id)
 
-    text, markup = books_text_and_keyboard()
-    bot.send_message(message.chat.id, text, parse_mode="Markdown", reply_markup=markup)
+
+@bot.message_handler(
+    func=lambda m: (
+        m.content_type == "text"
+        and m.text is not None
+        and m.text.strip().lower() == "start"
+        and not is_admin(m.from_user.id)
+    )
+)
+def handle_plain_start(message):
+    send_catalog(message.chat.id)
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("pick_"))
@@ -119,9 +135,8 @@ def handle_book_pick(call):
     )
 
 
-# STEP 3 & STEP 4: User sends screenshot -> Forward to admin & ask user to wait for admin approval
 @bot.message_handler(content_types=["photo"])
-def step_3_4_screenshot(message):
+def handle_screenshot(message):
     user_id = message.from_user.id
     if is_admin(user_id):
         return
@@ -152,9 +167,8 @@ def step_3_4_screenshot(message):
             )
             bot.forward_message(admin_id, message.chat.id, message.message_id)
         except Exception as e:
-            print(f"Error notifying admin {admin_id}: {e}")
+            print(f"Error notifying admin {admin_id}: {e}", flush=True)
 
-    # Step 4: Wait for admin approval
     bot.reply_to(
         message,
         "⏳ **የክፍያ ደረሰኝዎ (Screenshot) ደርሷል።**\n"
@@ -163,9 +177,8 @@ def step_3_4_screenshot(message):
     )
 
 
-# Admin approves and sends the PDF book
 @bot.callback_query_handler(func=lambda call: call.data.startswith("approve_"))
-def admin_approve_and_send(call):
+def handle_approve(call):
     if not is_admin(call.from_user.id):
         bot.answer_callback_query(call.id, "ለአድሚን ብቻ ነው።", show_alert=True)
         return
@@ -221,7 +234,7 @@ def admin_approve_and_send(call):
 
 
 @bot.message_handler(commands=["sendbook"])
-def manual_sendbook(message):
+def handle_sendbook(message):
     if not is_admin(message.from_user.id):
         bot.reply_to(message, "⛔ ይህ ትዕዛዝ ለአድሚን ብቻ ነው።")
         return
@@ -261,10 +274,13 @@ def manual_sendbook(message):
 
 
 def run_polling():
+    print("🤖 Telegram Bot is running with infinity polling...", flush=True)
     bot.infinity_polling(skip_pending=True)
 
 
+threading.Thread(target=run_polling, daemon=True).start()
+
 if __name__ == "__main__":
-    threading.Thread(target=run_polling, daemon=True).start()
     port = int(os.environ.get("PORT", 10000))
+    print(f"🌐 Starting Flask server on port {port}...", flush=True)
     app.run(host="0.0.0.0", port=port)

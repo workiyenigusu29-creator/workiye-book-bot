@@ -5,13 +5,13 @@ from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 BOT_TOKEN = os.getenv("BOT_TOKEN", "9000383726:AAF_1RKfb3jlwdpJir0-CN2nfPltnET4cGY")
 
 # Replace with your actual Telegram numeric User ID so payment receipts go to you
-ADMIN_ID = 123456789
+ADMIN_ID = 741140918
 
 # Update with your actual payment details
 PAYMENT_INFO = (
     "💳 **የክፍያ አማራጮች (Payment Methods):**\n"
-    "• **Telebirr:** `09XXXXXXXX` (ወርቅዬ ንጉሱ)\n"
-    "• **CBE:** `1000XXXXXXXXX` (ወርቅዬ ንጉሱ)\n\n"
+    "• **Telebirr:** `0940277822` (ወርቅዬ ንጉሱ)\n"
+    "• **CBE:** `1000307290247` (ወርቅዬ ንጉሱ)\n\n"
     "📸 ክፍያውን ከፈጸሙ በኋላ **የደረሰኙን ፎቶ (Screenshot)** እዚህ ይላኩ።"
 )
 

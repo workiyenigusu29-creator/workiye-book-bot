@@ -40,8 +40,8 @@ BOOKS = {
     },
 }
 
-# Stores each buyer's currently selected book: {buyer_user_id: book_code}
-user_selected_book = {}
+# Tracks last book selected per user: {user_id: book_code}
+user_choice = {}
 
 bot = telebot.TeleBot(BOT_TOKEN)
 app = Flask(__name__)
@@ -56,74 +56,124 @@ def is_admin(user_id: int) -> bool:
     return user_id in ADMIN_IDS
 
 
-def build_book_keyboard():
+def books_text_and_keyboard():
+    lines = ["📚 **የመጽሐፍት ዝርዝር እና ዋጋ (Book List & Prices):**\n"]
     markup = types.InlineKeyboardMarkup(row_width=1)
-    for code, info in BOOKS.items():
-        btn = types.InlineKeyboardButton(
-            text=f"📖 {info['title']} — {info['price']}",
-            callback_data=f"select_{code}",
+
+    for idx, (code, info) in enumerate(BOOKS.items(), start=1):
+        lines.append(f"{idx}. {info['title']} — **{info['price']}** (`{code}`)")
+        markup.add(
+            types.InlineKeyboardButton(
+                text=f"📖 {info['title']} ({info['price']})",
+                callback_data=f"pick_{code}",
+            )
         )
-        markup.add(btn)
-    return markup
+
+    lines.append(
+        "\n💳 **የክፍያ አካውንቶች፡**\n"
+        "🟢 Telebirr: `0940277822` (Workiye Nigusu)\n"
+        "🏦 CBE: `1000307290247`\n\n"
+        "📸 **ደረጃ 3：** መጽሐፉን ይምረጡ፣ ይክፈሉ እና **የደረሰኝ ፎቶ (Screenshot)** በዚህ ቻት ይላኩ።\n"
+        "⏳ **ደረጃ 4：** የአድሚን ማረጋገጫ ይጠብቁ።"
+    )
+    return "\n".join(lines), markup
 
 
+# STEP 1 & STEP 2: User clicks /start -> Bot displays book list with prices
 @bot.message_handler(commands=["start"])
-def handle_start(message):
+def step_1_2_start(message):
     user_id = message.from_user.id
 
     if is_admin(user_id):
         bot.reply_to(
             message,
-            f"ሰላም አድሚን ወርቅዬ (ID: `{user_id}`)! 👑\n\n"
-            "የገዥዎች የክፍያ ደረሰኝ ሲመጣ ከስር ባለው **✅ አጽድቅና መጽሐፍ ላክ** ቁልፍ በቀጥታ ማጽደቅ ይችላሉ፣ ወይም `/sendbook <user_id> <book_code>` መጠቀም ይችላሉ።",
+            f"ሰላም አድሚን (ID: `{user_id}`)! 👑\n"
+            "የገዥዎች የክፍያ Screenshot ሲመጣ በቁልፍ ማጽደቅ ወይም `/sendbook <user_id> <book_code>` መጠቀም ይችላሉ።",
             parse_mode="Markdown",
         )
         return
 
-    bot.send_message(
-        message.chat.id,
-        "ሰላም! ወደ የመጽሐፍ መሸጫ ቦት (@Lisanwork12_Bot) እንኳን ደህና መጡ። 📚\n\n"
-        "እባክዎ መጀመሪያ የሚፈልጉትን መጽሐፍ ከታች ይምረጡ፡-",
-        reply_markup=build_book_keyboard(),
-    )
+    text, markup = books_text_and_keyboard()
+    bot.send_message(message.chat.id, text, parse_mode="Markdown", reply_markup=markup)
 
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith("select_"))
-def handle_book_selection(call):
+@bot.callback_query_handler(func=lambda call: call.data.startswith("pick_"))
+def handle_book_pick(call):
     user_id = call.from_user.id
-    book_code = call.data.replace("select_", "", 1)
-
-    if book_code not in BOOKS:
+    code = call.data.replace("pick_", "", 1)
+    if code not in BOOKS:
         bot.answer_callback_query(call.id, "መጽሐፉ አልተገኘም።")
         return
 
-    user_selected_book[user_id] = book_code
-    book = BOOKS[book_code]
-
-    bot.answer_callback_query(call.id, f"{book['title']} ተመርጧል")
+    user_choice[user_id] = code
+    book = BOOKS[code]
+    bot.answer_callback_query(call.id, f"{book['title']} ({book['price']})")
     bot.send_message(
         call.message.chat.id,
-        f"✅ የመረጡት መጽሐፍ፡ **{book['title']}**\n"
-        f"💰 የሚከፈል ዋጋ፡ **{book['price']}**\n\n"
-        "💳 **ክፍያ የሚፈጽሙባቸው አካውንቶች፡**\n"
+        f"✅ የመረጡት መጽሐፍ፡ **{book['title']}** — **{book['price']}**\n\n"
+        "💳 **ክፍያ ይፈጽሙ፡**\n"
         "🟢 Telebirr: `0940277822` (Workiye Nigusu)\n"
         "🏦 CBE: `1000307290247`\n\n"
-        "📸 ክፍያውን ከፈጸሙ በኋላ **የደረሰኝ ፎቶ (Screenshot)** በዚህ ቻት ይላኩ። አድሚኑ ሲያረጋግጥ መጽሐፉ በPDF ይላክልዎታል።",
+        "📸 ከከፈሉ በኋላ **የደረሰኝ ፎቶ (Screenshot)** ይላኩና **የአድሚን ማረጋገጫ ይጠብቁ**።",
         parse_mode="Markdown",
     )
 
 
+# STEP 3 & STEP 4: User sends screenshot -> Forward to admin & ask user to wait for admin approval
+@bot.message_handler(content_types=["photo"])
+def step_3_4_screenshot(message):
+    user_id = message.from_user.id
+    if is_admin(user_id):
+        return
+
+    code = user_choice.get(user_id, "book_1")
+    book = BOOKS[code]
+    username = f"@{message.from_user.username}" if message.from_user.username else "የለውም"
+    name = message.from_user.first_name or "ገዥ"
+
+    approve_markup = types.InlineKeyboardMarkup()
+    approve_markup.add(
+        types.InlineKeyboardButton(
+            text=f"✅ አጽድቅና መጽሐፍ ላክ ({code})",
+            callback_data=f"approve_{user_id}_{code}",
+        )
+    )
+
+    for admin_id in ADMIN_IDS:
+        try:
+            bot.send_message(
+                admin_id,
+                f"🧾 **አዲስ የክፍያ Screenshot ደርሷል**\n"
+                f"👤 ገዥ፡ {name} ({username})\n"
+                f"🆔 User ID: `{user_id}`\n"
+                f"📚 መጽሐፍ፡ {book['title']} ({book['price']})",
+                parse_mode="Markdown",
+                reply_markup=approve_markup,
+            )
+            bot.forward_message(admin_id, message.chat.id, message.message_id)
+        except Exception as e:
+            print(f"Error notifying admin {admin_id}: {e}")
+
+    # Step 4: Wait for admin approval
+    bot.reply_to(
+        message,
+        "⏳ **የክፍያ ደረሰኝዎ (Screenshot) ደርሷል።**\n"
+        "እባክዎ **የአድሚን ማረጋገጫ ይጠብቁ** (Wait for admin approval)። ክፍያው ሲረጋገጥ መጽሐፍዎ በPDF ይላክልዎታል።",
+        parse_mode="Markdown",
+    )
+
+
+# Admin approves and sends the PDF book
 @bot.callback_query_handler(func=lambda call: call.data.startswith("approve_"))
-def handle_admin_approval(call):
+def admin_approve_and_send(call):
     if not is_admin(call.from_user.id):
         bot.answer_callback_query(call.id, "ለአድሚን ብቻ ነው።", show_alert=True)
         return
 
-    # Format: approve_<buyer_id>_<book_code>
     payload = call.data.replace("approve_", "", 1)
     parts = payload.split("_", 1)
     if len(parts) != 2:
-        bot.answer_callback_query(call.id, "የትዕዛዝ መረጃ ስህተት አለው።")
+        bot.answer_callback_query(call.id, "መረጃው ስህተት አለው።")
         return
 
     try:
@@ -132,12 +182,12 @@ def handle_admin_approval(call):
         bot.answer_callback_query(call.id, "የገዥ ID ስህተት አለው።")
         return
 
-    book_code = parts[1]
-    if book_code not in BOOKS:
+    code = parts[1]
+    if code not in BOOKS:
         bot.answer_callback_query(call.id, "መጽሐፉ አልተገኘም።")
         return
 
-    book = BOOKS[book_code]
+    book = BOOKS[code]
     file_path = book["file"]
 
     if not os.path.exists(file_path):
@@ -151,13 +201,14 @@ def handle_admin_approval(call):
                 buyer_id,
                 pdf_file,
                 caption=(
-                    f"✅ ክፍያዎ ተረጋግጧል!\n"
+                    f"✅ **ክፍያዎ በአድሚን ተረጋግጧል!**\n"
                     f"📖 መጽሐፍ፡ {book['title']}\n"
                     f"አዘጋጅ፡ ወርቅዬ ንጉሱ ቸሩ\n"
                     f"መልካም ንባብ!"
                 ),
+                parse_mode="Markdown",
             )
-        bot.answer_callback_query(call.id, "መጽሐፉ ተልኳል! ✅")
+        bot.answer_callback_query(call.id, "ተረጋግጦ ተልኳል! ✅")
         bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=None)
         bot.send_message(
             call.from_user.id,
@@ -170,9 +221,9 @@ def handle_admin_approval(call):
 
 
 @bot.message_handler(commands=["sendbook"])
-def handle_sendbook(message):
+def manual_sendbook(message):
     if not is_admin(message.from_user.id):
-        bot.reply_to(message, "⛔ ይህ ትዕዛዝ ለአድሚን ብቻ የተፈቀደ ነው።")
+        bot.reply_to(message, "⛔ ይህ ትዕዛዝ ለአድሚን ብቻ ነው።")
         return
 
     parts = message.text.split()
@@ -181,86 +232,32 @@ def handle_sendbook(message):
         return
 
     try:
-        target_user_id = int(parts[1])
+        buyer_id = int(parts[1])
     except ValueError:
-        bot.reply_to(message, "❌ ትክክለኛ የገዥ User ID (ቁጥር) ያስገቡ።")
+        bot.reply_to(message, "❌ ትክክለኛ የገዥ User ID ያስገቡ።")
         return
 
-    book_code = parts[2].lower()
-    if book_code not in BOOKS:
-        bot.reply_to(message, f"❌ የመጽሐፍ ኮድ `{book_code}` አልተገኘም።", parse_mode="Markdown")
+    code = parts[2].lower()
+    if code not in BOOKS:
+        bot.reply_to(message, f"❌ ኮድ `{code}` አልተገኘም።", parse_mode="Markdown")
         return
 
-    book = BOOKS[book_code]
+    book = BOOKS[code]
     file_path = book["file"]
     if not os.path.exists(file_path):
-        bot.reply_to(message, f"⚠️ ፋይሉ `{file_path}` በሰርቨሩ ላይ አልተገኘም።", parse_mode="Markdown")
+        bot.reply_to(message, f"⚠️ ፋይሉ `{file_path}` አልተገኘም።", parse_mode="Markdown")
         return
 
     try:
         with open(file_path, "rb") as pdf_file:
             bot.send_document(
-                target_user_id,
+                buyer_id,
                 pdf_file,
-                caption=f"✅ ክፍያዎ ተረጋግጧል!\n📖 መጽሐፍ፡ {book['title']}\nአዘጋጅ፡ ወርቅዬ ንጉሱ ቸሩ\nመልካም ንባብ!",
+                caption=f"✅ ክፍያዎ ተረጋግጧል!\n📖 መጽሐፍ፡ {book['title']}\nአዘጋጅ፡ ወርቅዬ ንጉሱ ቸሩ",
             )
-        bot.reply_to(message, f"✅ «{book['title']}» ወደ User ID `{target_user_id}` ተልኳል።", parse_mode="Markdown")
+        bot.reply_to(message, f"✅ «{book['title']}» ወደ `{buyer_id}` ተልኳል።")
     except Exception as e:
-        bot.reply_to(message, f"❌ መጽሐፉን መላክ አልተቻለም፡ {e}")
-
-
-@bot.message_handler(content_types=["photo", "document", "text"])
-def handle_user_messages(message):
-    user_id = message.from_user.id
-    if is_admin(user_id):
-        return
-
-    # Ignore plain text commands not caught above if user hasn't selected a book yet
-    selected_code = user_selected_book.get(user_id)
-    if not selected_code and message.content_type == "text":
-        bot.send_message(
-            message.chat.id,
-            "እባክዎ መጀመሪያ የሚፈልጉትን መጽሐፍ ይምረጡ፡-",
-            reply_markup=build_book_keyboard(),
-        )
-        return
-
-    book = BOOKS.get(selected_code, {
-        "title": "ያልተመረጠ መጽሐፍ (ገዥው በጽሑፍ ሊገልጽ ይችላል)",
-        "price": "—",
-    })
-    effective_code = selected_code or "book_1"
-
-    username = f"@{message.from_user.username}" if message.from_user.username else "የለውም"
-    full_name = message.from_user.first_name or "ገዥ"
-
-    approve_markup = types.InlineKeyboardMarkup()
-    approve_markup.add(
-        types.InlineKeyboardButton(
-            text=f"✅ አጽድቅና መጽሐፍ ላክ ({effective_code})",
-            callback_data=f"approve_{user_id}_{effective_code}",
-        )
-    )
-
-    for admin_id in ADMIN_IDS:
-        try:
-            bot.send_message(
-                admin_id,
-                f"📩 **አዲስ የክፍያ ማረጋገጫ ጥያቄ**\n"
-                f"👤 ገዥ፡ {full_name} ({username})\n"
-                f"🆔 User ID: `{user_id}`\n"
-                f"📚 የመረጠው መጽሐፍ፡ {book['title']} ({book['price']})",
-                parse_mode="Markdown",
-                reply_markup=approve_markup,
-            )
-            bot.forward_message(admin_id, message.chat.id, message.message_id)
-        except Exception as e:
-            print(f"Admin notification error: {e}")
-
-    bot.reply_to(
-        message,
-        "✅ የክፍያ ማረጋገጫዎ ለአድሚኑ ደርሷል። ክፍያው ሲረጋገጥ መጽሐፉ በዚህ ቻት ይላክልዎታል።",
-    )
+        bot.reply_to(message, f"❌ ስህተት፡ {e}")
 
 
 def run_polling():

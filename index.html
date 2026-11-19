@@ -6,7 +6,7 @@
     <title>የመጽሐፍ መሸጫ መደብር | Book Store</title>
     <style>
         :root {
-            --primary: #1e293b;
+            --primary: #0f172a;
             --accent: #0284c7;
             --accent-hover: #0369a1;
             --success: #16a34a;
@@ -14,7 +14,7 @@
             --bg: #f1f5f9;
             --card-bg: #ffffff;
             --text: #0f172a;
-            --muted: #64748b;
+            --muted: #475569;
         }
 
         * {
@@ -23,7 +23,7 @@
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(180deg, #e2e8f0 0%, var(--bg) 260px);
+            background: linear-gradient(180deg, #e2e8f0 0%, var(--bg) 320px);
             color: var(--text);
             margin: 0;
             padding: 0;
@@ -31,22 +31,35 @@
         }
 
         header {
-            background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 60%, #0369a1 100%);
             color: #fff;
-            padding: 32px 20px;
+            padding: 36px 20px 42px;
             text-align: center;
-            box-shadow: 0 6px 20px rgba(15, 23, 42, 0.2);
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.22);
+        }
+
+        .hero-badge {
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.14);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            padding: 5px 14px;
+            border-radius: 999px;
+            font-size: 0.85rem;
+            margin-bottom: 12px;
+            letter-spacing: 0.03em;
         }
 
         header h1 {
-            margin: 0 0 8px;
-            font-size: 1.9rem;
+            margin: 0 0 10px;
+            font-size: 2rem;
         }
 
         header p {
-            margin: 0 0 18px;
-            color: #cbd5e1;
-            font-size: 1rem;
+            margin: 0 auto 20px;
+            max-width: 660px;
+            color: #e2e8f0;
+            font-size: 1.02rem;
+            line-height: 1.6;
         }
 
         .bot-banner-btn {
@@ -56,10 +69,11 @@
             background: #229ED9;
             color: #fff;
             text-decoration: none;
-            padding: 10px 18px;
+            padding: 11px 22px;
             border-radius: 999px;
-            font-weight: 600;
-            font-size: 0.95rem;
+            font-weight: 700;
+            font-size: 0.96rem;
+            box-shadow: 0 4px 14px rgba(34, 158, 217, 0.4);
             transition: transform 0.2s ease, background 0.2s ease;
         }
 
@@ -69,8 +83,8 @@
         }
 
         .container {
-            max-width: 1020px;
-            margin: 28px auto 50px;
+            max-width: 1100px;
+            margin: -18px auto 50px;
             padding: 0 20px;
         }
 
@@ -82,17 +96,17 @@
             justify-content: space-between;
             align-items: center;
             background: var(--card-bg);
-            padding: 14px 18px;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
-            margin-bottom: 24px;
+            padding: 15px 18px;
+            border-radius: 14px;
+            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+            margin-bottom: 28px;
         }
 
         .search-input {
-            flex: 1 1 240px;
-            padding: 10px 14px;
+            flex: 1 1 260px;
+            padding: 11px 14px;
             border: 1px solid #cbd5e1;
-            border-radius: 8px;
+            border-radius: 9px;
             font-size: 0.95rem;
             outline: none;
         }
@@ -129,69 +143,93 @@
 
         .book-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 24px;
+            grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
+            gap: 26px;
         }
 
         .book-card {
             background: var(--card-bg);
-            border-radius: 14px;
+            border-radius: 16px;
             padding: 22px;
-            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.07);
+            box-shadow: 0 8px 22px rgba(15, 23, 42, 0.07);
             display: flex;
             flex-direction: column;
             justify-content: space-between;
+            border: 1px solid #e2e8f0;
             transition: transform 0.25s ease, box-shadow 0.25s ease;
         }
 
         .book-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 14px 28px rgba(15, 23, 42, 0.12);
+            transform: translateY(-6px);
+            box-shadow: 0 16px 32px rgba(15, 23, 42, 0.13);
         }
 
-        /* 3D Book Visual */
+        /* 3D Book Promotional Stage */
         .book-3d-stage {
-            perspective: 900px;
+            perspective: 1000px;
             display: flex;
             justify-content: center;
             align-items: center;
-            padding: 14px 0 22px;
+            padding: 18px 0 24px;
+            background: radial-gradient(circle at center, #f1f5f9 0%, #ffffff 75%);
+            border-radius: 12px;
+            margin-bottom: 16px;
+            cursor: pointer;
         }
 
         .book-3d {
             position: relative;
-            width: 145px;
-            height: 200px;
+            width: 160px;
+            height: 222px;
             transform-style: preserve-3d;
             transform: rotateY(-22deg) rotateX(6deg);
             transition: transform 0.35s ease;
-            border-radius: 4px 10px 10px 4px;
-            box-shadow: 12px 16px 26px rgba(15, 23, 42, 0.28);
+            border-radius: 4px 12px 12px 4px;
+            box-shadow: 14px 18px 28px rgba(15, 23, 42, 0.3);
         }
 
         .book-card:hover .book-3d {
-            transform: rotateY(-8deg) rotateX(3deg) translateY(-4px);
+            transform: rotateY(-8deg) rotateX(3deg) translateY(-4px) scale(1.03);
         }
 
+        /* Book Spine */
         .book-3d::before {
             content: "";
             position: absolute;
             top: 0;
             left: 0;
-            width: 16px;
+            width: 18px;
             height: 100%;
-            background: linear-gradient(90deg, rgba(0, 0, 0, 0.35), rgba(255, 255, 255, 0.15), rgba(0, 0, 0, 0.25));
+            background: linear-gradient(90deg, rgba(0, 0, 0, 0.42), rgba(255, 255, 255, 0.22), rgba(0, 0, 0, 0.28));
             border-radius: 4px 0 0 4px;
-            z-index: 2;
+            z-index: 3;
+        }
+
+        /* Book Page Edges */
+        .book-3d::after {
+            content: "";
+            position: absolute;
+            top: 4px;
+            right: -6px;
+            width: 6px;
+            height: calc(100% - 8px);
+            background: repeating-linear-gradient(
+                90deg,
+                #f8fafc,
+                #f8fafc 1px,
+                #cbd5e1 1px,
+                #cbd5e1 2px
+            );
+            border-radius: 0 3px 3px 0;
         }
 
         .book-cover-art {
             width: 100%;
             height: 100%;
-            border-radius: 4px 10px 10px 4px;
+            border-radius: 4px 12px 12px 4px;
             background: var(--cover-grad, linear-gradient(145deg, #1d4ed8, #0f172a));
             color: #fff;
-            padding: 18px 14px 14px 24px;
+            padding: 14px 14px 12px 24px;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
@@ -199,13 +237,13 @@
             position: relative;
         }
 
-        .book-cover-art img {
+        .book-cover-art img.custom-cover {
             position: absolute;
             inset: 0;
             width: 100%;
             height: 100%;
             object-fit: cover;
-            border-radius: 4px 10px 10px 4px;
+            border-radius: 4px 12px 12px 4px;
             z-index: 1;
         }
 
@@ -218,48 +256,140 @@
             justify-content: space-between;
         }
 
+        .book-cover-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
         .book-cover-badge {
-            font-size: 0.68rem;
+            font-size: 0.65rem;
+            font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 0.06em;
-            background: rgba(255, 255, 255, 0.18);
+            letter-spacing: 0.05em;
+            background: rgba(255, 255, 255, 0.22);
             padding: 3px 7px;
             border-radius: 4px;
-            align-self: flex-start;
+        }
+
+        .book-illustration {
+            width: 64px;
+            height: 64px;
+            margin: 6px auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.14);
+            border-radius: 50%;
+            padding: 10px;
+            box-shadow: inset 0 0 12px rgba(255, 255, 255, 0.18);
+        }
+
+        .book-illustration svg {
+            width: 100%;
+            height: 100%;
         }
 
         .book-cover-label {
-            font-size: 0.85rem;
+            font-size: 0.82rem;
             font-weight: 700;
-            line-height: 1.3;
-            text-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+            line-height: 1.28;
+            text-shadow: 0 2px 6px rgba(0, 0, 0, 0.55);
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .book-cover-author {
+            font-size: 0.64rem;
+            color: rgba(255, 255, 255, 0.85);
+            border-top: 1px solid rgba(255, 255, 255, 0.25);
+            padding-top: 4px;
+            margin-top: 4px;
+        }
+
+        .book-category-tag {
+            display: inline-block;
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: var(--accent);
+            background: #e0f2fe;
+            padding: 3px 9px;
+            border-radius: 6px;
+            margin-bottom: 8px;
         }
 
         .book-title {
-            font-size: 1.1rem;
+            font-size: 1.12rem;
             font-weight: 700;
             margin-bottom: 8px;
             color: var(--primary);
             line-height: 1.4;
         }
 
+        .book-preface-snippet {
+            font-size: 0.9rem;
+            color: var(--muted);
+            line-height: 1.55;
+            margin-bottom: 14px;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .book-meta-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 14px;
+            padding-top: 10px;
+            border-top: 1px solid #f1f5f9;
+        }
+
         .book-price {
-            font-size: 1.15rem;
+            font-size: 1.18rem;
             color: var(--success);
             font-weight: 800;
-            margin-bottom: 16px;
+        }
+
+        .book-compiler {
+            font-size: 0.8rem;
+            color: var(--muted);
+        }
+
+        .card-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .btn-preface {
+            background-color: #f1f5f9;
+            color: var(--primary);
+            border: 1px solid #cbd5e1;
+            padding: 10px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+
+        .btn-preface:hover {
+            background-color: #e2e8f0;
         }
 
         .btn-buy {
             background-color: var(--accent);
             color: #fff;
             border: none;
-            padding: 11px 16px;
+            padding: 10px 12px;
             border-radius: 8px;
             cursor: pointer;
-            font-size: 0.98rem;
-            font-weight: 600;
-            width: 100%;
+            font-size: 0.92rem;
+            font-weight: 700;
             transition: background-color 0.2s ease, transform 0.15s ease;
         }
 
@@ -277,8 +407,8 @@
             position: fixed;
             z-index: 1000;
             inset: 0;
-            background-color: rgba(15, 23, 42, 0.6);
-            backdrop-filter: blur(3px);
+            background-color: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(4px);
             justify-content: center;
             align-items: center;
             padding: 16px;
@@ -290,13 +420,13 @@
 
         .modal-content {
             background-color: #fff;
-            padding: 24px;
-            border-radius: 14px;
-            max-width: 470px;
+            padding: 26px;
+            border-radius: 16px;
+            max-width: 560px;
             width: 100%;
             max-height: 92vh;
             overflow-y: auto;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 24px 48px rgba(0, 0, 0, 0.32);
             position: relative;
         }
 
@@ -317,8 +447,51 @@
 
         .modal h2 {
             margin: 0 24px 10px 0;
-            font-size: 1.25rem;
+            font-size: 1.3rem;
             color: var(--primary);
+            line-height: 1.35;
+        }
+
+        /* Preface Modal Layout */
+        .preface-hero {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            align-items: center;
+            background: #f8fafc;
+            padding: 16px;
+            border-radius: 12px;
+            margin: 14px 0;
+            border: 1px solid #e2e8f0;
+        }
+
+        .preface-cover-wrap {
+            flex: 0 0 auto;
+            margin: 0 auto;
+        }
+
+        .preface-summary {
+            flex: 1 1 240px;
+        }
+
+        .preface-box {
+            background: #ffffff;
+            border-left: 4px solid var(--accent);
+            padding: 14px 16px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+            margin: 14px 0;
+            line-height: 1.7;
+            font-size: 0.96rem;
+            color: #1e293b;
+        }
+
+        .highlights-list {
+            margin: 10px 0 18px;
+            padding-left: 20px;
+            color: #334155;
+            line-height: 1.65;
+            font-size: 0.93rem;
         }
 
         .payment-info {
@@ -428,13 +601,23 @@
         .btn-copy:hover {
             background: #cbd5e1;
         }
+
+        footer {
+            text-align: center;
+            padding: 24px 16px;
+            color: var(--muted);
+            font-size: 0.9rem;
+            border-top: 1px solid #e2e8f0;
+            background: #fff;
+        }
     </style>
 </head>
 <body>
 
 <header>
+    <div class="hero-badge">📚 ዲጂታል የመጽሐፍ መደብር | አዘጋጅ፡ ወርቅዬ ንጉሱ ቸሩ</div>
     <h1>📖 የመጽሐፍ መሸጫ መደብር</h1>
-    <p>ጥራት ያላቸው መጽሐፍትን በመምረጥ ይግዙ — ክፍያ ፈጽመው በቴሌግራም ቦት ያረጋግጡ</p>
+    <p>እውቀትን፣ ሙያዊ ብቃትን፣ ባህላዊ ህክምናን እና የስኬት መርሆችን የያዙ መጽሐፍትን መቅድማቸውን በማንበብ ይምረጡና በቀላሉ ይግዙ።</p>
     <a class="bot-banner-btn" href="https://t.me/Lisanwork12_Bot" target="_blank" rel="noopener noreferrer">
         🤖 ወደ @Lisanwork12_Bot ይሂዱ
     </a>
@@ -446,7 +629,7 @@
             type="text"
             id="searchInput"
             class="search-input"
-            placeholder="🔍 የመጽሐፍ ስም ይፈልጉ..."
+            placeholder="🔍 የመጽሐፍ ስም ወይም ርዕስ ይፈልጉ..."
             oninput="renderBooks()"
         >
         <div class="filter-group">
@@ -460,198 +643,21 @@
     <div class="book-grid" id="bookList"></div>
 </div>
 
-<!-- Payment Modal -->
-<div id="paymentModal" class="modal">
+<!-- Preface / Promotional Preview Modal -->
+<div id="prefaceModal" class="modal">
     <div class="modal-content">
-        <span class="close" onclick="closeModal()">&times;</span>
-        <h2 id="modalBookTitle"></h2>
-        <p><strong>ዋጋ:</strong> <span id="modalBookPrice" style="color: #16a34a; font-weight: 700;"></span></p>
+        <span class="close" onclick="closePrefaceModal()">&times;</span>
+        <span class="book-category-tag" id="prefCategory"></span>
+        <h2 id="prefTitle"></h2>
 
-        <div class="payment-info">
-            <p>መጽሐፉን ለመግዛት ከታች ባሉት አካውንቶች ክፍያ ይፈጽሙ፡</p>
-            <p>🟢 <strong>Telebirr:</strong> 0940277822 (Workiye Nigusu)</p>
-            <p>🏦 <strong>የኢትዮጵያ ንግድ ባንክ (CBE):</strong> 1000307290247</p>
+        <div class="preface-hero">
+            <div class="preface-cover-wrap" id="prefCoverContainer"></div>
+            <div class="preface-summary">
+                <p style="margin: 0 0 8px;"><strong>አዘጋጅ፡</strong> ወርቅዬ ንጉሱ ቸሩ</p>
+                <p style="margin: 0 0 8px;"><strong>ዋጋ፡</strong> <span id="prefPrice" style="color: #16a34a; font-weight: 800; font-size: 1.1rem;"></span></p>
+                <p style="margin: 0; font-size: 0.9rem; color: #475569;"><strong>ቅርጸት፡</strong> ዲጂታል መጽሐፍ (PDF)</p>
+            </div>
         </div>
 
-        <form id="paymentForm" onsubmit="submitPayment(event)">
-            <div class="form-group">
-                <label for="buyerName">የገዥ ስም ወይም የቴሌግራም @username:</label>
-                <input type="text" id="buyerName" placeholder="ለምሳሌ፡ @username ወይም ስም" required>
-            </div>
-
-            <div class="form-group">
-                <label for="paymentMethod">የከፈሉበት መንገድ:</label>
-                <select id="paymentMethod">
-                    <option value="Telebirr">Telebirr (0940277822)</option>
-                    <option value="CBE">የኢትዮጵያ ንግድ ባንክ - CBE (1000307290247)</option>
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label for="receipt">የደረሰኝ ፎቶ (Screenshot) ያስገቡ:</label>
-                <input type="file" id="receipt" accept="image/*" required onchange="previewReceipt(event)">
-                <div class="receipt-preview" id="receiptPreview">
-                    <img id="receiptImg" alt="የደረሰኝ ቅድመ እይታ">
-                </div>
-            </div>
-
-            <button type="submit" class="btn-submit">የክፍያ መልዕክት አዘጋጅ</button>
-        </form>
-
-        <div class="bot-actions" id="botActions">
-            <p style="margin: 0 0 10px; font-size: 0.92rem; color: #0f172a;">
-                ✅ መልዕክቱ ተዘጋጅቷል። አሁን <strong>@Lisanwork12_Bot</strong> ላይ ይላኩ እና የደረሰኝ ፎቶውን (Screenshot) በቦቱ ያያይዙ፦
-            </p>
-            <a id="telegramDeepLink" class="btn-telegram" href="https://t.me/Lisanwork12_Bot" target="_blank" rel="noopener noreferrer">
-                📤 በቴሌግራም ቦት (@Lisanwork12_Bot) ይላኩ
-            </a>
-            <button type="button" class="btn-copy" onclick="copyOrderText()">📋 የትዕዛዝ መልዕክት ቅዳ</button>
-        </div>
-    </div>
-</div>
-
-<script>
-    const BOT_USERNAME = "Lisanwork12_Bot";
-
-    // Optional: If you upload cover images to your project folder, set coverImage: "covers/book1.jpg"
-    const BOOKS = [
-        {
-            id: "book_1",
-            title: "ሀገር በቀል እፅዋትና የህክምና ጥቅማቸው",
-            price: "100 ብር",
-            numericPrice: 100,
-            file: "medcine book.pdf",
-            coverImage: "",
-            gradient: "linear-gradient(145deg, #15803d, #064e3b)"
-        },
-        {
-            id: "book_2",
-            title: "የትምህርት ሙያዊ ብቃትና ተግባራዊ አፈጻጸም",
-            price: "150 ብር",
-            numericPrice: 150,
-            file: "የትምህርት ሙያዊ ብቃት.pdf",
-            coverImage: "",
-            gradient: "linear-gradient(145deg, #1d4ed8, #1e1b4b)"
-        },
-        {
-            id: "book_3",
-            title: "Professional competence and practical performance in education",
-            price: "150 ብር",
-            numericPrice: 150,
-            file: "Educational competency.pdf",
-            coverImage: "",
-            gradient: "linear-gradient(145deg, #0369a1, #0f172a)"
-        },
-        {
-            id: "book_4",
-            title: "የመሪነት ጥበብ",
-            price: "200 ብር",
-            numericPrice: 200,
-            file: "የመሪነት ጥበብ.pdf",
-            coverImage: "",
-            gradient: "linear-gradient(145deg, #b45309, #451a03)"
-        },
-        {
-            id: "book_5",
-            title: "የስኬት ምስጢር",
-            price: "200 ብር",
-            numericPrice: 200,
-            file: "የስኬት ምስጢር.pdf",
-            coverImage: "",
-            gradient: "linear-gradient(145deg, #be123c, #4c0519)"
-        },
-        {
-            id: "book_6",
-            title: "የሲቭል ሰርቭስ የብቃት ምዘና ጥያቄዎች 457 በላይ",
-            price: "200 ብር",
-            numericPrice: 200,
-            file: "civil service exam.pdf",
-            coverImage: "",
-            gradient: "linear-gradient(145deg, #6d28d9, #1e1b4b)"
-        }
-    ];
-
-    let activePriceFilter = "all";
-    let selectedBook = null;
-    let lastPreparedMessage = "";
-
-    function setPriceFilter(price, btnEl) {
-        activePriceFilter = price;
-        document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
-        btnEl.classList.add("active");
-        renderBooks();
-    }
-
-    function renderBooks() {
-        const query = document.getElementById("searchInput").value.trim().toLowerCase();
-        const bookListEl = document.getElementById("bookList");
-        bookListEl.innerHTML = "";
-
-        const filtered = BOOKS.filter(book => {
-            const matchesText = book.title.toLowerCase().includes(query);
-            const matchesPrice = activePriceFilter === "all" || String(book.numericPrice) === activePriceFilter;
-            return matchesText && matchesPrice;
-        });
-
-        if (filtered.length === 0) {
-            bookListEl.innerHTML = `<p style="grid-column: 1 / -1; text-align: center; color: #64748b;">ምንም የተዛመደ መጽሐፍ አልተገኘም።</p>`;
-            return;
-        }
-
-        filtered.forEach(book => {
-            const card = document.createElement("div");
-            card.className = "book-card";
-
-            const imgTag = book.coverImage
-                ? `<img src="${book.coverImage}" alt="${book.title}">`
-                : "";
-
-            card.innerHTML = `
-                <div>
-                    <div class="book-3d-stage">
-                        <div class="book-3d" style="--cover-grad: ${book.gradient};">
-                            <div class="book-cover-art">
-                                ${imgTag}
-                                <div class="book-cover-overlay">
-                                    <span class="book-cover-badge">PDF eBook</span>
-                                    <span class="book-cover-label">${book.title}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="book-title">${book.title}</div>
-                    <div class="book-price">${book.price}</div>
-                </div>
-                <button class="btn-buy" onclick="openModal('${book.id}')">መጽሐፉን ይግዙ</button>
-            `;
-            bookListEl.appendChild(card);
-        });
-    }
-
-    function previewReceipt(event) {
-        const file = event.target.files[0];
-        const previewDiv = document.getElementById("receiptPreview");
-        const imgEl = document.getElementById("receiptImg");
-        if (file) {
-            imgEl.src = URL.createObjectURL(file);
-            previewDiv.style.display = "block";
-        } else {
-            previewDiv.style.display = "none";
-        }
-    }
-
-    function openModal(bookId) {
-        selectedBook = BOOKS.find(b => b.id === bookId);
-        if (!selectedBook) return;
-        document.getElementById("modalBookTitle").innerText = selectedBook.title;
-        document.getElementById("modalBookPrice").innerText = selectedBook.price;
-        document.getElementById("botActions").classList.remove("visible");
-        document.getElementById("paymentModal").classList.add("show");
-    }
-
-    function closeModal() {
-        document.getElementById("paymentModal").classList.remove("show");
-    }
-
-    function submitPayment(event) {
-        event.preventDefault
+        <h3 style="margin: 12px 0 6px; font-size: 1.05rem; color: #0f172a;">📜 የመጽሐፉ መቅድም (Preface)</h3>
+        <div class="preface-box"

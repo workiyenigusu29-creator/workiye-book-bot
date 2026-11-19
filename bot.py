@@ -204,9 +204,14 @@ def handle_admin_approve(call):
             target_user_id,
             f"🎉 ክፍያዎ ተረጋግጧል! ስለገዙን እናመሰግናለን።\n📖 **{book['title']}** እነሆ፦",
             parse_mode="Markdown",
+            protect_content=True,
         )
         with open(file_path, "rb") as pdf_file:
-            bot.send_document(target_user_id, pdf_file)
+            bot.send_document(
+                target_user_id,
+                pdf_file,
+                protect_content=True,
+            )
 
         bot.edit_message_caption(
             chat_id=call.message.chat.id,

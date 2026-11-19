@@ -1,7 +1,9 @@
 import os
 import threading
+import time
 from flask import Flask
 import telebot
+from telebot.apihelper import ApiTelegramException
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 BOT_TOKEN = os.getenv("BOT_TOKEN", "9000383726:AAF_1RKfb3jlwdpJir0-CN2nfPltnET4cGY")
@@ -57,8 +59,8 @@ app = Flask(__name__)
 user_selected_book = {}
 
 
-@app.route("/")
-@app.route("/health")
+@app.route("/", methods=["GET", "HEAD"])
+@app.route("/health", methods=["GET", "HEAD"])
 def home():
     return "Bot is running", 200
 
@@ -244,8 +246,27 @@ def handle_admin_reject(call):
     bot.answer_callback_query(call.id, "ውድቅ ተደርጓል።")
 
 
+def run_polling():
+    try:
+        bot.remove_webhook()
+    except Exception:
+        pass
+
+    while True:
+        try:
+            bot.infinity_polling(skip_pending=True, timeout=30, long_polling_timeout=25)
+        except ApiTelegramException as e:
+            if e.error_code == 409:
+                time.sleep(10)
+            else:
+                time.sleep(5)
+        except Exception as e:
+            print(f"Polling error: {e}")
+            time.sleep(5)
+
+
 if __name__ == "__main__":
     server_thread = threading.Thread(target=run_web_server, daemon=True)
     server_thread.start()
     print("Web server & bot are running...")
-    bot.infinity_polling(skip_pending=True, timeout=30, long_polling_timeout=25)
+    run_polling()

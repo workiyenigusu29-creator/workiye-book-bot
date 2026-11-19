@@ -660,4 +660,395 @@
         </div>
 
         <h3 style="margin: 12px 0 6px; font-size: 1.05rem; color: #0f172a;">📜 የመጽሐፉ መቅድም (Preface)</h3>
-        <div class="preface-box"
+        <div class="preface-box" id="prefText"></div>
+
+        <h3 style="margin: 14px 0 6px; font-size: 1.02rem; color: #0f172a;">✨ በመጽሐፉ ውስጥ የተካተቱ ዋና ዋና ነጥቦች</h3>
+        <ul class="highlights-list" id="prefHighlights"></ul>
+
+        <button class="btn-buy" id="prefBuyBtn" style="width: 100%; padding: 13px; font-size: 1rem;">
+            🛒 ይህን መጽሐፍ አሁኑኑ ይግዙ
+        </button>
+    </div>
+</div>
+
+<!-- Payment Modal -->
+<div id="paymentModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closePaymentModal()">&times;</span>
+        <h2 id="modalBookTitle"></h2>
+        <p><strong>ዋጋ:</strong> <span id="modalBookPrice" style="color: #16a34a; font-weight: 700;"></span></p>
+
+        <div class="payment-info">
+            <p>መጽሐፉን ለመግዛት ከታች ባሉት አካውንቶች ክፍያ ይፈጽሙ፡</p>
+            <p>🟢 <strong>Telebirr:</strong> 0940277822 (Workiye Nigusu)</p>
+            <p>🏦 <strong>የኢትዮጵያ ንግድ ባንክ (CBE):</strong> 1000307290247</p>
+        </div>
+
+        <form id="paymentForm" onsubmit="submitPayment(event)">
+            <div class="form-group">
+                <label for="buyerName">የገዥ ስም ወይም የቴሌግራም @username:</label>
+                <input type="text" id="buyerName" placeholder="ለምሳሌ፡ @username ወይም ስም" required>
+            </div>
+
+            <div class="form-group">
+                <label for="paymentMethod">የከፈሉበት መንገድ:</label>
+                <select id="paymentMethod">
+                    <option value="Telebirr">Telebirr (0940277822)</option>
+                    <option value="CBE">የኢትዮጵያ ንግድ ባንክ - CBE (1000307290247)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="receipt">የደረሰኝ ፎቶ (Screenshot) ያስገቡ:</label>
+                <input type="file" id="receipt" accept="image/*" required onchange="previewReceipt(event)">
+                <div class="receipt-preview" id="receiptPreview">
+                    <img id="receiptImg" alt="የደረሰኝ ቅድመ እይታ">
+                </div>
+            </div>
+
+            <button type="submit" class="btn-submit">የክፍያ መልዕክት አዘጋጅ</button>
+        </form>
+
+        <div class="bot-actions" id="botActions">
+            <p style="margin: 0 0 10px; font-size: 0.92rem; color: #0f172a;">
+                ✅ መልዕክቱ ተዘጋጅቷል። አሁን <strong>@Lisanwork12_Bot</strong> ላይ ይላኩ እና የደረሰኝ ፎቶውን (Screenshot) በቦቱ ያያይዙ፦
+            </p>
+            <a id="telegramDeepLink" class="btn-telegram" href="https://t.me/Lisanwork12_Bot" target="_blank" rel="noopener noreferrer">
+                📤 በቴሌግራም ቦት (@Lisanwork12_Bot) ይላኩ
+            </a>
+            <button type="button" class="btn-copy" onclick="copyOrderText()">📋 የትዕዛዝ መልዕክት ቅዳ</button>
+        </div>
+    </div>
+</div>
+
+<footer>
+    © 2026 የመጽሐፍ መሸጫ መደብር — አዘጋጅ፡ ወርቅዬ ንጉሱ ቸሩ | ቴሌግራም ቦት፡ <a href="https://t.me/Lisanwork12_Bot" target="_blank" rel="noopener noreferrer">@Lisanwork12_Bot</a>
+</footer>
+
+<script>
+    const BOT_USERNAME = "Lisanwork12_Bot";
+
+    // Title-matched promotional SVG illustrations for each 3D book cover
+    const COVER_ICONS = {
+        herbs: `<svg viewBox="0 0 64 64" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 38h28c0 10-6 16-14 16s-14-6-14-16z" fill="rgba(255,255,255,0.2)"/>
+            <path d="M14 38h36"/>
+            <path d="M42 22l-8 16"/>
+            <path d="M26 36c-6-6-6-16 4-22 6 8 4 16-4 22z" fill="rgba(255,255,255,0.25)"/>
+            <path d="M32 34c4-8 12-10 18-6-2 8-10 10-18 6z"/>
+        </svg>`,
+        education_am: `<svg viewBox="0 0 64 64" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="32,12 6,24 32,36 58,24" fill="rgba(255,255,255,0.22)"/>
+            <path d="M16 30v12c0 5 7 9 16 9s16-4 16-9V30"/>
+            <path d="M54 26v14"/>
+            <circle cx="54" cy="42" r="2.5" fill="#fff"/>
+        </svg>`,
+        education_en: `<svg viewBox="0 0 64 64" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10 16h18a6 6 0 0 1 6 6v28a5 5 0 0 0-5-5H10z" fill="rgba(255,255,255,0.2)"/>
+            <path d="M54 16H36a6 6 0 0 0-6 6v28a5 5 0 0 1 5-5h19z" fill="rgba(255,255,255,0.12)"/>
+            <path d="M16 24h8M16 31h8M40 24h8M40 31h8"/>
+        </svg>`,
+        leadership: `<svg viewBox="0 0 64 64" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="32" cy="34" r="20" fill="rgba(255,255,255,0.15)"/>
+            <polygon points="32,20 38,34 32,48 26,34" fill="rgba(255,255,255,0.3)"/>
+            <path d="M22 12l5 5 5-7 5 7 5-5"/>
+        </svg>`,
+        success: `<svg viewBox="0 0 64 64" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="32,10 38,23 52,25 42,35 44,49 32,42 20,49 22,35 12,25 26,23" fill="rgba(255,255,255,0.24)"/>
+            <path d="M26 33l4 4 9-9"/>
+        </svg>`,
+        exam: `<svg viewBox="0 0 64 64" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="14" y="10" width="36" height="44" rx="4" fill="rgba(255,255,255,0.18)"/>
+            <path d="M22 22l3 3 6-6"/>
+            <path d="M35 22h9"/>
+            <path d="M22 33l3 3 6-6"/>
+            <path d="M35 33h9"/>
+            <path d="M22 44h22"/>
+        </svg>`
+    };
+
+    // Set coverImage to your uploaded image filename (e.g. "covers/herbs.jpg") if you upload custom photos
+    const BOOKS = [
+        {
+            id: "book_1",
+            category: "ባህላዊ ህክምና እና እፅዋት",
+            title: "ሀገር በቀል እፅዋትና የህክምና ጥቅማቸው",
+            price: "100 ብር",
+            numericPrice: 100,
+            file: "medcine book.pdf",
+            coverImage: "",
+            iconKey: "herbs",
+            gradient: "linear-gradient(145deg, #15803d, #064e3b)",
+            preface: "ሀገራችን ኢትዮጵያ በተፈጥሮ ሀብትና በሀገር በቀል የመድኃኒት እፅዋት የበለጸገች ሀገር ነች። ይህ መጽሐፍ ከትውልድ ወደ ትውልድ ሲተላለፍ የቆየውን ባህላዊ የእፅዋት እውቀት በዘመናዊና ግልጽ በሆነ መንገድ ሰንዶ ይዟል። እንደ ዳማከሴ፣ ጤና አዳም፣ ፌጦ፣ እንዶድ፣ ግራዋ፣ እሬት እና ሌሎች ጠቃሚ እፅዋት መለያ ባህሪያትን፣ የአዘገጃጀት ዘዴዎችን እና የአጠቃቀም ጥንቃቄዎችን በዝርዝር ያቀርባል።",
+            highlights: [
+                "የታወቁ ሀገር በቀል የመድኃኒት እፅዋት ዝርዝር መገለጫ",
+                "ለተለያዩ የጤና እክሎች የሚውሉ ባህላዊ አዘገጃጀቶች",
+                "የአጠቃቀም መጠን እና መወሰድ ያለባቸው ጥንቃቄዎች"
+            ]
+        },
+        {
+            id: "book_2",
+            category: "ትምህርትና ሙያዊ ልማት",
+            title: "የትምህርት ሙያዊ ብቃትና ተግባራዊ አፈጻጸም",
+            price: "150 ብር",
+            numericPrice: 150,
+            file: "የትምህርት ሙያዊ ብቃት.pdf",
+            coverImage: "",
+            iconKey: "education_am",
+            gradient: "linear-gradient(145deg, #1d4ed8, #1e1b4b)",
+            preface: "የትምህርት ጥራት የሚረጋገጠው በመምህራንና በትምህርት ባለሙያዎች ሙያዊ ብቃትና ተግባራዊ አፈጻጸም ነው። ይህ መጽሐፍ የመማር ማስተማር ሂደትን ውጤታማ ለማድረግ የሚያስችሉ የማስተማር ስነ-ዘዴዎችን፣ የክፍል ውስጥ አመራርን፣ የተከታታይ ምዘና ስልቶችን እና ለሙያዊ ብቃት ምዘና የሚያዘጋጁ ቁልፍ ጽንሰ-ሀሳቦችን በግልጽ ያብራራል።",
+            highlights: [
+                "ዘመናዊ የመማር ማስተማር እና የክፍል አመራር ስልቶች",
+                "የተማሪዎችን ውጤት የሚያሻሽሉ ተግባራዊ የምዘና ዘዴዎች",
+                "ለመምህራንና የትምህርት ባለሙያዎች የተዘጋጀ ሙያዊ መመሪያ"
+            ]
+        },
+        {
+            id: "book_3",
+            category: "Education & Pedagogy",
+            title: "Professional competence and practical performance in education",
+            price: "150 ብር",
+            numericPrice: 150,
+            file: "Educational competency.pdf",
+            coverImage: "",
+            iconKey: "education_en",
+            gradient: "linear-gradient(145deg, #0369a1, #0f172a)",
+            preface: "Designed for educators, school leaders, and education professionals, this comprehensive guide bridges educational theory with real-world classroom execution. It covers instructional planning, learner-centered pedagogy, continuous assessment frameworks, and professional standards essential for high-impact teaching and competency evaluations.",
+            highlights: [
+                "Core pillars of instructional design and classroom management",
+                "Practical frameworks for formative and summative assessment",
+                "Structured preparation for educator competency assessments"
+            ]
+        },
+        {
+            id: "book_4",
+            category: "አመራር እና አስተዳደር",
+            title: "የመሪነት ጥበብ",
+            price: "200 ብር",
+            numericPrice: 200,
+            file: "የመሪነት ጥበብ.pdf",
+            coverImage: "",
+            iconKey: "leadership",
+            gradient: "linear-gradient(145deg, #b45309, #451a03)",
+            preface: "መሪነት ከስልጣን ወይም ከማዕረግ በላይ ሰዎችን በራዕይ የማነሳሳት፣ ችግሮችን በብልሃት የመፍታት እና የጋራ ስኬትን የመገንባት ጥበብ ነው። ይህ መጽሐፍ በተቋማት፣ በማህበረሰብ እና በግል ህይወት ውስጥ ውጤታማ መሪ ለመሆን የሚያስፈልጉ የውሳኔ አሰጣጥ ክህሎቶችን፣ የቡድን ግንባታ መርሆዎችን እና የስነ-ምግባር እሴቶችን በተግባራዊ ምሳሌዎች ያቀርባል።",
+            highlights: [
+                "ራዕይን የመቅረጽ እና ቡድንን የማነሳሳት ስልቶች",
+                "ውጤታማ የውሳኔ አሰጣጥ እና የግጭት አፈታት ጥበብ",
+                "ተቋማዊ ለውጥን የመምራት ተግባራዊ መርሆዎች"
+            ]
+        },
+        {
+            id: "book_5",
+            category: "ራስን ማበልጸግና ስኬት",
+            title: "የስኬት ምስጢር",
+            price: "200 ብር",
+            numericPrice: 200,
+            file: "የስኬት ምስጢር.pdf",
+            coverImage: "",
+            iconKey: "success",
+            gradient: "linear-gradient(145deg, #be123c, #4c0519)",
+            preface: "ስኬት በአጋጣሚ የሚገኝ ሳይሆን በትክክለኛ አስተሳሰብ፣ በዓላማ ጽናት እና በየዕለቱ በሚገነቡ መልካም ልማዶች የሚመጣ ውጤት ነው። «የስኬት ምስጢር» ጊዜን በአግባቡ መጠቀምን፣ ፍርሃትንና ተስፋ መቁረጥን ማሸነፍን፣ ግልጽ ግብ ማውጣትን እና ህልምን ወደ ተጨባጭ ውጤት መቀየር የሚቻልባቸውን ወርቃማ መርሆዎች ያስጨብጣል።",
+            highlights: [
+                "አሸናፊ አስተሳሰብን (Mindset) እና ራስን መግዛትን መገንባት",
+                "ግልጽ ግብ የማውጣት እና ጊዜን የማስተዳደር ዘዴዎች",
+                "መሰናክሎችን ወደ እድል የመቀየር ተግባራዊ ልምምዶች"
+            ]
+        },
+        {
+            id: "book_6",
+            category: "የፈተና ዝግጅት መጽሐፍ",
+            title: "የሲቭል ሰርቭስ የብቃት ምዘና ጥያቄዎች 457 በላይ",
+            price: "200 ብር",
+            numericPrice: 200,
+            file: "civil service exam.pdf",
+            coverImage: "",
+            iconKey: "exam",
+            gradient: "linear-gradient(145deg, #6d28d9, #1e1b4b)",
+            preface: "ለሲቪል ሰርቪስ ኮሚሽን የብቃት ምዘና ፈተና በቂ ዝግጅት ለማድረግ ለሚፈልጉ ተፈታኞች የተዘጋጀ ልዩ የጥያቄና መልስ መጽሐፍ ነው። በውስጡ ከ457 በላይ የተመረጡ የልምምድ ጥያቄዎችን ከትክክለኛ መልሶቻቸው ጋር በማካተት፣ የመንግስት አገልግሎት መርሆዎችን፣ ስነ-ምግባርን፣ አስተዳደራዊ ክህሎቶችን እና አመክንዮአዊ ጥያቄዎችን በቀላሉ እንዲለማመዱ ያግዛል።",
+            highlights: [
+                "ከ457 በላይ የተመረጡ የሲቪል ሰርቪስ የብቃት ምዘና ጥያቄዎች",
+                "የስነ-ምግባር፣ የአገልግሎት አሰጣጥና የአስተዳደር ርዕሶች ሽፋን",
+                "በራስ መተማመንን የሚገነባ የተሟላ የፈተና ልምምድ"
+            ]
+        }
+    ];
+
+    let activePriceFilter = "all";
+    let selectedBook = null;
+    let lastPreparedMessage = "";
+
+    function build3DBookHTML(book) {
+        const imgTag = book.coverImage
+            ? `<img class="custom-cover" src="${book.coverImage}" alt="${book.title}">`
+            : "";
+        const svgMarkup = COVER_ICONS[book.iconKey] || "";
+
+        return `
+            <div class="book-3d" style="--cover-grad: ${book.gradient};">
+                <div class="book-cover-art">
+                    ${imgTag}
+                    <div class="book-cover-overlay">
+                        <div class="book-cover-top">
+                            <span class="book-cover-badge">PDF መጽሐፍ</span>
+                        </div>
+                        <div class="book-illustration">${svgMarkup}</div>
+                        <div>
+                            <div class="book-cover-label">${book.title}</div>
+                            <div class="book-cover-author">አዘጋጅ፡ ወርቅዬ ንጉሱ ቸሩ</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function setPriceFilter(price, btnEl) {
+        activePriceFilter = price;
+        document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+        btnEl.classList.add("active");
+        renderBooks();
+    }
+
+    function renderBooks() {
+        const query = document.getElementById("searchInput").value.trim().toLowerCase();
+        const bookListEl = document.getElementById("bookList");
+        bookListEl.innerHTML = "";
+
+        const filtered = BOOKS.filter(book => {
+            const matchesText =
+                book.title.toLowerCase().includes(query) ||
+                book.preface.toLowerCase().includes(query) ||
+                book.category.toLowerCase().includes(query);
+            const matchesPrice = activePriceFilter === "all" || String(book.numericPrice) === activePriceFilter;
+            return matchesText && matchesPrice;
+        });
+
+        if (filtered.length === 0) {
+            bookListEl.innerHTML = `<p style="grid-column: 1 / -1; text-align: center; color: #64748b; padding: 30px;">ምንም የተዛመደ መጽሐፍ አልተገኘም።</p>`;
+            return;
+        }
+
+        filtered.forEach(book => {
+            const card = document.createElement("div");
+            card.className = "book-card";
+
+            card.innerHTML = `
+                <div>
+                    <div class="book-3d-stage" onclick="openPrefaceModal('${book.id}')" title="መቅድም ለማንበብ ይጫኑ">
+                        ${build3DBookHTML(book)}
+                    </div>
+                    <span class="book-category-tag">${book.category}</span>
+                    <div class="book-title">${book.title}</div>
+                    <div class="book-preface-snippet"><strong>መቅድም፡</strong> ${book.preface}</div>
+                </div>
+                <div>
+                    <div class="book-meta-row">
+                        <div class="book-price">${book.price}</div>
+                        <div class="book-compiler">አዘጋጅ፡ ወርቅዬ ንጉሱ ቸሩ</div>
+                    </div>
+                    <div class="card-actions">
+                        <button class="btn-preface" onclick="openPrefaceModal('${book.id}')">📖 መቅድም አንብብ</button>
+                        <button class="btn-buy" onclick="openPaymentModal('${book.id}')">🛒 መጽሐፉን ይግዙ</button>
+                    </div>
+                </div>
+            `;
+            bookListEl.appendChild(card);
+        });
+    }
+
+    function openPrefaceModal(bookId) {
+        const book = BOOKS.find(b => b.id === bookId);
+        if (!book) return;
+
+        document.getElementById("prefCategory").innerText = book.category;
+        document.getElementById("prefTitle").innerText = book.title;
+        document.getElementById("prefPrice").innerText = book.price;
+        document.getElementById("prefCoverContainer").innerHTML = build3DBookHTML(book);
+        document.getElementById("prefText").innerText = book.preface;
+
+        const highlightsEl = document.getElementById("prefHighlights");
+        highlightsEl.innerHTML = book.highlights.map(item => `<li>${item}</li>`).join("");
+
+        document.getElementById("prefBuyBtn").onclick = function () {
+            closePrefaceModal();
+            openPaymentModal(book.id);
+        };
+
+        document.getElementById("prefaceModal").classList.add("show");
+    }
+
+    function closePrefaceModal() {
+        document.getElementById("prefaceModal").classList.remove("show");
+    }
+
+    function previewReceipt(event) {
+        const file = event.target.files[0];
+        const previewDiv = document.getElementById("receiptPreview");
+        const imgEl = document.getElementById("receiptImg");
+        if (file) {
+            imgEl.src = URL.createObjectURL(file);
+            previewDiv.style.display = "block";
+        } else {
+            previewDiv.style.display = "none";
+        }
+    }
+
+    function openPaymentModal(bookId) {
+        selectedBook = BOOKS.find(b => b.id === bookId);
+        if (!selectedBook) return;
+        document.getElementById("modalBookTitle").innerText = selectedBook.title;
+        document.getElementById("modalBookPrice").innerText = selectedBook.price;
+        document.getElementById("botActions").classList.remove("visible");
+        document.getElementById("paymentModal").classList.add("show");
+    }
+
+    function closePaymentModal() {
+        document.getElementById("paymentModal").classList.remove("show");
+    }
+
+    function submitPayment(event) {
+        event.preventDefault();
+        if (!selectedBook) return;
+
+        const buyerName = document.getElementById("buyerName").value.trim();
+        const method = document.getElementById("paymentMethod").value;
+        const fileInput = document.getElementById("receipt");
+        const receiptName = fileInput.files[0] ? fileInput.files[0].name : "Screenshot attached";
+
+        lastPreparedMessage =
+`ሰላም @${BOT_USERNAME} — አዲስ የመጽሐፍ ግዢ ማረጋገጫ
+📚 መጽሐፍ: ${selectedBook.title}
+💰 ዋጋ: ${selectedBook.price}
+👤 ገዥ: ${buyerName}
+💳 የክፍያ መንገድ: ${method}
+🧾 ደረሰኝ ፋይል: ${receiptName}
+(የደረሰኝ ፎቶውን በዚህ ቻት እልካለሁ)`;
+
+        const encodedText = encodeURIComponent(lastPreparedMessage);
+        document.getElementById("telegramDeepLink").href = `https://t.me/${BOT_USERNAME}?text=${encodedText}`;
+        document.getElementById("botActions").classList.add("visible");
+    }
+
+    function copyOrderText() {
+        if (!lastPreparedMessage) return;
+        navigator.clipboard.writeText(lastPreparedMessage).then(() => {
+            alert("✅ የትዕዛዝ መልዕክት ተቀድቷል። በቴሌግራም ቦቱ ላይ ለጥፈው ይላኩ።");
+        });
+    }
+
+    window.onclick = function(event) {
+        const payModal = document.getElementById("paymentModal");
+        const prefModal = document.getElementById("prefaceModal");
+        if (event.target === payModal) {
+            closePaymentModal();
+        }
+        if (event.target === prefModal) {
+            closePrefaceModal();
+        }
+    };
+
+    renderBooks();
+</script>
+
+</body>
+</html>

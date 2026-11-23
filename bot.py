@@ -199,13 +199,12 @@ def validate_payment_message(text: str, msg_dt: datetime):
 
 
 def build_watermarked_pdf_bytes(file_path: str, buyer_id: int) -> bytes:
-    """Adds a buyer watermark and disables printing/copying permissions in PDF metadata."""
+    """Adds a buyer watermark and sets PDF permission flags before sending."""
     doc = fitz.open(file_path)
     watermark_text = f"Buyer ID: {buyer_id}"
 
     for page in doc:
         rect = page.rect
-        # Subtle footer & diagonal watermark tied to buyer_id
         page.insert_text(
             fitz.Point(24, rect.height - 16),
             watermark_text,
@@ -219,7 +218,6 @@ def build_watermarked_pdf_bytes(file_path: str, buyer_id: int) -> bytes:
             color=(0.82, 0.82, 0.82),
         )
 
-    # Restrict PDF permissions (note: viewers may still ignore permissions)
     perms = int(fitz.PDF_PERM_ACCESSIBILITY)
     out_bytes = doc.tobytes(
         deflate=True,
@@ -488,13 +486,22 @@ def run_polling():
     except Exception:
         pass
 
+    time.sleep(4)
+
     while True:
         try:
-            bot.infinity_polling(skip_pending=True, timeout=30, long_polling_timeout=25)
+            bot.infinity_polling(
+                skip_pending=True,
+                timeout=30,
+                long_polling_timeout=25,
+                restart_on_change=False,
+            )
         except ApiTelegramException as e:
             if e.error_code == 409:
+                print("409 Conflict: another getUpdates instance is active; retrying in 10s...")
                 time.sleep(10)
             else:
+                print(f"Telegram API error {e.error_code}: {e}")
                 time.sleep(5)
         except Exception as e:
             print(f"Polling error: {e}")

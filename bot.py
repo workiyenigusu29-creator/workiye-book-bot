@@ -1,9 +1,11 @@
 from datetime import datetime, timedelta
+import io
 import os
 import re
 import threading
 import time
 from flask import Flask
+import fitz  # PyMuPDF: pip install pymupdf
 import telebot
 from telebot.apihelper import ApiTelegramException
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
@@ -196,6 +198,40 @@ def validate_payment_message(text: str, msg_dt: datetime):
     return True, (tx_ref, receipt_dt)
 
 
+def build_watermarked_pdf_bytes(file_path: str, buyer_id: int) -> bytes:
+    """Adds a buyer watermark and disables printing/copying permissions in PDF metadata."""
+    doc = fitz.open(file_path)
+    watermark_text = f"Buyer ID: {buyer_id}"
+
+    for page in doc:
+        rect = page.rect
+        # Subtle footer & diagonal watermark tied to buyer_id
+        page.insert_text(
+            fitz.Point(24, rect.height - 16),
+            watermark_text,
+            fontsize=9,
+            color=(0.55, 0.55, 0.55),
+        )
+        page.insert_text(
+            fitz.Point(rect.width * 0.25, rect.height * 0.55),
+            watermark_text,
+            fontsize=24,
+            color=(0.82, 0.82, 0.82),
+        )
+
+    # Restrict PDF permissions (note: viewers may still ignore permissions)
+    perms = int(fitz.PDF_PERM_ACCESSIBILITY)
+    out_bytes = doc.tobytes(
+        deflate=True,
+        encryption=fitz.PDF_ENCRYPT_AES_256,
+        user_pw="",
+        owner_pw=os.urandom(16).hex(),
+        permissions=perms,
+    )
+    doc.close()
+    return out_bytes
+
+
 def deliver_book(target_user_id, book):
     file_path = book["file"]
     if not os.path.exists(file_path):
@@ -203,16 +239,24 @@ def deliver_book(target_user_id, book):
 
     bot.send_message(
         target_user_id,
-        f"🎉 ክፍያዎ ተረጋግጧል! ስለገዙን እናመሰግናለን።\n📖 **{book['title']}** እነሆ፦",
+        (
+            f"🎉 ክፍያዎ ተረጋግጧል! ስለገዙን እናመሰግናለን።\n"
+            f"📖 **{book['title']}** እነሆ፦\n"
+            f"⚠️ *ማሳሰቢያ፦ ይህ ሰነድ ለግል ንባብ ብቻ የተላከ ሲሆን ማስተላለፍ ወይም ማጋራት የተከለከለ ነው።*"
+        ),
         parse_mode="Markdown",
         protect_content=True,
     )
-    with open(file_path, "rb") as pdf_file:
-        bot.send_document(
-            target_user_id,
-            pdf_file,
-            protect_content=True,
-        )
+
+    watermarked_bytes = build_watermarked_pdf_bytes(file_path, target_user_id)
+    pdf_stream = io.BytesIO(watermarked_bytes)
+    pdf_stream.name = os.path.basename(file_path)
+
+    bot.send_document(
+        target_user_id,
+        pdf_stream,
+        protect_content=True,
+    )
     return True, None
 
 
@@ -332,7 +376,6 @@ def handle_admin_review_decision(call):
             bot.answer_callback_query(call.id, f"Error: {e}", show_alert=True)
         return
 
-    # action == "doc_approve"
     book = BOOKS.get(book_id)
     if not book:
         bot.answer_callback_query(call.id, "No book selected by buyer.", show_alert=True)
